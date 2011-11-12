@@ -1,0 +1,7 @@
+; $Id$
+name = Commmerce QuickPay
+description = Process Commerce payments using QuickPay.
+package = QuickPay payment gateway
+dependencies[] = quickpay
+dependencies[] = commerce_payment
+core = 7.x
