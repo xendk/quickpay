@@ -6,6 +6,10 @@
 
 class QuickpayException extends Exception {}
 
+/**
+ * The Quickpay class abstracts a specific setup. Each QuickpayTransaction is
+ * associated with a Quickpay class, containing the configuration.
+ */
 class Quickpay {
   private static $currency_info = array();
   private $test_mode = FALSE;
@@ -19,6 +23,9 @@ class Quickpay {
   // private $link_message // needed? shouldn't the calling module create that page?
   private $language = LANGUAGE_NONE; // With a 'use user language' default option.
 
+  /**
+   * Constructor. Takes a settings array.
+   */
   public function __construct($options) {
     // Check options, throw exception if problems
     if (empty($options['merchant']) || !preg_match('/^[0-9]{8}$/', $options['merchant'])) {
@@ -50,15 +57,16 @@ class Quickpay {
     /* } */
   }
 
-  /* public static function transaction($options, $txnid) { */
-  /*   $qp = new Quickpay($options); */
-  /*   return $qp->transaction($txnid); */
-  /* } */
-
+  /**
+   * Get a transaction associated with this Quickpay instance.
+   */
   public function transaction($txnid) {
     return new QuickpayTransaction($this, $txnid);
   }
 
+  /**
+   * Load a transaction from $_POST.
+   */
   public function transaction_callback() {
    static $md5_order = array(
     'msgtype',
@@ -252,6 +260,9 @@ class Quickpay {
     return $form;
   }
 
+  /**
+   * Send a request to Quickpay. Primarily for use by QuickpayTransaction.
+   */
   public function request($type, $request_data, QuickpayTransaction $transaction) {
     if (!is_array($request_data)) {
       $request_data = (array) $request_data;
@@ -298,7 +309,10 @@ class Quickpay {
     return $transaction;
   }
 
-  function md5checksum($data) {
+  /**
+   * Calculate the md5checksum for the request.
+   */
+  public function md5checksum($data) {
     $fields = array(
       'protocol',
       'msgtype',
@@ -478,6 +492,9 @@ class Quickpay {
     return $this->request('subscribe', $request_data, $transaction);
   }
 
+  /**
+   * Ensure that ordernumber is properly formatted.
+   */
   public function ordernumber($order_id) {
     $ordernumber = $this->order_prefix . $order_id;
     // Ensure that Order number is at least 4 characters.
@@ -501,6 +518,11 @@ class Quickpay {
     return $this->accepted_cards;
   }
 
+  /**
+   * Returns the settings form.
+   *
+   * @param $settings array Previously saved setting.
+   */
   public static function settings_form($settings = array()) {
     $settings += array(
       'merchant' => '',
@@ -597,6 +619,7 @@ class Quickpay {
    * @return NULL or an array with the keys 'code' and 'multiplier'.
    */
   public static function currency_info($code) {
+    // @todo if commerce module is enabled, use its list.
     if (!array_key_exists($code, Quickpay::$currency_info)) {
       // Use a basic set.
       $base_currencies = array(
@@ -651,6 +674,9 @@ class Quickpay {
   }
 }
 
+/**
+ * Abstracts a transaction.
+ */
 class QuickpayTransaction {
   // State codes.
   const INITIAL = 0;
@@ -690,6 +716,9 @@ class QuickpayTransaction {
     'history',
   );
 
+  /**
+   * Create a transaction object.
+   */
   public function __construct(Quickpay $qp, $txnid = NULL) {
     $this->qp = $qp;
     foreach (QuickpayTransaction::$fields as $field) {
@@ -703,6 +732,9 @@ class QuickpayTransaction {
     }
   }
 
+  /**
+   * Magic method.
+   */
   public function __get($field) {
     if (!$this->loaded) {
       $this->status();
@@ -716,6 +748,9 @@ class QuickpayTransaction {
     throw new QuickpayException(t("Unknown property @name", array('@name' => $field)));
   }
 
+  /**
+   * Magic method.
+   */
   public function __isset($field) {
     if ($field != 'transaction' && !$this->loaded) {
       $this->status();
@@ -726,6 +761,9 @@ class QuickpayTransaction {
 
   }
 
+  /**
+   * Returns the currency for this transaction.
+   */
   public function currency() {
     if (!$this->loaded) {
       $this->status();
@@ -737,6 +775,9 @@ class QuickpayTransaction {
     throw new QuickpayException(t('No currency defined for transaction @txn_id', array('@txn_id' => $this->data['transaction'])));
   }
 
+  /**
+   * Returns the amount for this transaction.
+   */
   public function amount() {
     if (!$this->loaded) {
       $this->status();
@@ -747,6 +788,9 @@ class QuickpayTransaction {
     throw new QuickpayException(t('No amount for transaction @txn_id', array('@txn_id', $this->data['transaction'])));
   }
 
+  /**
+   * Returns the history for this transaction.
+   */
   public function history() {
     if (!$this->loaded || !isset($this->history)) {
       $this->status();
@@ -757,6 +801,9 @@ class QuickpayTransaction {
     return array();
   }
 
+  /**
+   * Extract named object properties into an associative array.
+   */
   public function extract() {
     // Safety, don't attempt to extract on empty transactions.
     if (empty($this->data['transaction'])) {
@@ -776,6 +823,9 @@ class QuickpayTransaction {
     return Quickpay::wire_amount($amount, $this->currency());
   }
 
+  /**
+   * Load a request response.
+   */
   public function load_response(array $response) {
     if (!isset($response['qpstat'])) {
       throw new QuickpayException(t('No state from Quickpay'));
@@ -793,6 +843,10 @@ class QuickpayTransaction {
     $this->loaded = TRUE;
   }
 
+  /**
+   * Encode the minimal needed information about this transaction, for later
+   * loading. This is what modules using Quickpay should use as a reference.
+   */
   public function store() {
     if ($this->data['currency']){
       return serialize(array($this->data['transaction'], $this->data['currency']));
@@ -800,10 +854,16 @@ class QuickpayTransaction {
     return $this->transaction;
   }
 
+  /**
+   * Capture on an authorised transaction.
+   */
   public function capture($amount, $finalize = FALSE) {
     $this->qp->request('capture', $this->extract('transaction') + array('amount' => $this->wire_amount($amount), 'finalize' => $finalize ? '1' : '0'), $this);
   }
 
+  /**
+   * Update this transaction with status information from Quickpay.
+   */
   public function status() {
     $this->qp->request('status', $this->extract('transaction'), $this);
     // Throw an exception if Quickpay doesn't know this transaction.
@@ -814,18 +874,30 @@ class QuickpayTransaction {
     }
   }
 
+  /**
+   * Renew an authorisation.
+   */
   public function renew() {
     $this->qp->request('renew', $this->extract('transaction'), $this);
   }
 
+  /**
+   * Cancel an authorised transaction.
+   */
   public function cancel() {
     $this->qp->request('cancel', $this->extract('transaction'), $this);
   }
 
+  /**
+   * Refund previously captured money.
+   */
   public function refund($amount) {
     $this->qp->request('refund', $this->extract('transaction') + array('amount' => $this->wire_amount($amount)), $this);
   }
 
+  /**
+   * Create a new payment on a subscription transaction.
+   */
   function recurring($order_id, $amount, $currency, $options = array()) {
      $options += array(
       'autocapture' => FALSE,

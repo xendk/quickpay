@@ -38,6 +38,38 @@ function quickpay_menu() {
   return $items;
 }
 
+/**
+ * Implements hook_element_info().
+ *
+ * Describe our custom payment method selection element.
+ */
+function quickpay_element_info() {
+  $types['quickpay_payment_method'] = array(
+    '#input' => TRUE,
+    '#process' => array('quickpay_process_payment_method'),
+    '#after_build' => array('quickpay_payment_method_after_build'),
+    '#attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'quickpay') . '/quickpay.js',
+      ),
+    ),
+  );
+  return $types;
+}
+
+/**
+ * Implements hook_theme();
+ */
+function quickpay_theme() {
+  return array(
+    /* 'quickpay_cards' => array( */
+    /*   'arguments' => array('cards' => array()), */
+    /* ), */
+    'quickpay_accepted_cards' => array(
+      'render element' => 'element',
+    ),
+  );
+}
 
 /**
  * Access callback to check that the url parameters hasn't been tampered with.
@@ -57,6 +89,9 @@ function quickpay_md5_check() {
   return FALSE;
 }
 
+/**
+ * Information about all supported cards.
+ */
 function quickpay_cards() {
   $images_path = drupal_get_path('module', 'quickpay') . '/images/';
   return array(
@@ -163,24 +198,13 @@ function quickpay_cards() {
   );
 }
 
+/**
+ * Validation for the order_prefix setting.
+ */
 function quickpay_order_prefix_validate($element, &$form_state) {
   if (!preg_match('/^[a-zA-Z0-9]{0,15}$/', $element['#value'])) {
     form_error($element, t('Order prefix must only contain alphanumerics and be no longer than 15 characters.'));
   }
-}
-
-function quickpay_element_info() {
-  $types['quickpay_payment_method'] = array(
-    '#input' => TRUE,
-    '#process' => array('quickpay_process_payment_method'),
-    '#after_build' => array('quickpay_payment_method_after_build'),
-    '#attached' => array(
-      'js' => array(
-        drupal_get_path('module', 'quickpay') . '/quickpay.js',
-      ),
-    ),
-  );
-  return $types;
 }
 
 /**
@@ -273,33 +297,6 @@ function quickpay_payment_method_after_build($element, &$form_state) {
   }
   return $element;
 }
-
-function quickpay_api_success_message($txn) {
-  if ($txn->uid == 0) {
-    $message = variable_get('quickpay_api_success_message', 'Payment completed, we will process your order as soon as possible. Your order number: %id');
-    if ($message != '<none>')
-      return t($message);
-  }
-  else {
-    $message = variable_get('quickpay_api_success_message', 'Payment completed, we will process your order as soon as possible. Your order number: %id');
-    if ($message != '<none>')
-      return t($message, array('!uid' => $txn->uid,
-                               '!transaction_id' => $txn->txnid));
-  }
-  return NULL;
-}
-
-function quickpay_theme() {
-  return array(
-    /* 'quickpay_cards' => array( */
-    /*   'arguments' => array('cards' => array()), */
-    /* ), */
-    'quickpay_accepted_cards' => array(
-      'render element' => 'element',
-    ),
-  );
-}
-
 
 /* function theme_quickpay_cards($cards) { */
 /*   drupal_add_css(drupal_get_path('module', 'quickpay') . '/quickpay.css'); */
