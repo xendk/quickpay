@@ -96,6 +96,7 @@ function commerce_quickpay_transaction_capture($transaction) {
     $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
   }
   commerce_payment_transaction_save($transaction);
+  drupal_goto('admin/commerce/orders/' . $transaction->transaction_id . '/payment');
 }
 
 /**
@@ -118,6 +119,7 @@ function commerce_quickpay_transaction_cancel($transaction) {
     $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
   }
   commerce_payment_transaction_save($transaction);
+  drupal_goto('admin/commerce/orders/' . $transaction->transaction_id . '/payment');
 }
 
 /**
@@ -189,7 +191,7 @@ function commerce_quickpay_quickpay_callback($order_id, $txn) {
   $transaction->instance_id = $payment_method['instance_id'];
   $transaction->remote_id = $txn->store();
   $transaction->message = $txn->qpstatmsg;
-  $transaction->amount = commerce_currency_decimal_to_amount($txn->amount, $txn->currency_code);
+  $transaction->amount = commerce_currency_decimal_to_amount($txn->amount, $txn->currency);
   $transaction->currency_code = $txn->currency;
   $transaction->payload[REQUEST_TIME] = $txn;
 
