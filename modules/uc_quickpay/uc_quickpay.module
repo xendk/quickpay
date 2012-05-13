@@ -19,7 +19,7 @@ function uc_quickpay_uc_payment_method() {
     'callback' => 'uc_payment_method_quickpay',
     'weight' => 4,
     'checkout' => TRUE,
-    'no_gateway' => TRUE
+    'no_gateway' => TRUE,
   );
 
   return $methods;
@@ -40,7 +40,7 @@ function uc_quickpay_form_uc_cart_checkout_review_form_alter(&$form, &$form_stat
     if ($order->payment_method == 'quickpay') {
       $quickpay_form = drupal_get_form('uc_quickpay_review_form', $order);
 
-      // Remove the existing submit button
+      // Remove the existing submit button.
       unset($form['actions']['submit']);
 
       // And add the quickpay form after the current review form.
@@ -56,23 +56,23 @@ function uc_quickpay_form_uc_cart_checkout_review_form_alter(&$form, &$form_stat
  */
 function uc_quickpay_theme($existing, $type, $theme, $path) {
   $base_theme = array(
-    'file' => '/uc_quickpay.theme.inc'
+    'file' => '/uc_quickpay.theme.inc',
   );
 
   $themes['uc_quickpay_by_order_form'] = $base_theme + array(
-    'render element' => 'form'
+    'render element' => 'form',
   );
   $themes['uc_quickpay_authorized_comment'] = $base_theme + array(
-    'variables' => array('txn' => NULL)
+    'variables' => array('txn' => NULL),
   );
   $themes['uc_quickpay_captured_comment'] = $base_theme + array(
-    'variables' => array('txn' => NULL)
+    'variables' => array('txn' => NULL),
   );
   $themes['uc_quickpay_canceled_comment'] = $base_theme + array(
-    'variables' => array('txn' => NULL)
+    'variables' => array('txn' => NULL),
   );
   $themes['uc_quickpay_refunded_comment'] = $base_theme + array(
-    'variables' => array('txn' => NULL)
+    'variables' => array('txn' => NULL),
   );
 
   return $themes;
@@ -85,18 +85,18 @@ function uc_quickpay_theme($existing, $type, $theme, $path) {
  */
 function uc_quickpay_form_uc_payment_by_order_form_alter(&$form, &$form_state) {
   $order = $form_state['build_info']['args'][0];
-  
+
   // Make sure this order has a Quickpay transaction id.
   if (!isset($order->data['quickpay_txn_id'])) {
     return;
   }
-  
+
   // Insert the quickpay form at the bottom of the payment window.
   $form['uc_quickpay'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Quickpay')
+    '#title' => t('Quickpay'),
   );
-  
+
   $form['uc_quickpay']['capture'] = array(
     '#type' => 'submit',
     '#value' => t('Capture'),
@@ -106,43 +106,44 @@ function uc_quickpay_form_uc_payment_by_order_form_alter(&$form, &$form_state) {
   $form['uc_quickpay']['capture_amount'] = array(
     '#type' => 'textfield',
     '#value' => t(uc_payment_balance($order)),
-    '#size' => 20
+    '#size' => 20,
   );
-  
+
   $form['uc_quickpay']['refund'] = array(
     '#type' => 'submit',
     '#value' => t('Refund'),
     '#validate' => array(),
     '#submit' => array('uc_quickpay_action_submit'),
-    '#prefix' => '<br />'
+    '#prefix' => '<br />',
   );
   $form['uc_quickpay']['refund_amount'] = array(
     '#type' => 'textfield',
     '#value' => t(uc_payment_balance($order)),
-    '#size' => 20
+    '#size' => 20,
   );
-  
+
   if (variable_get('uc_sign_after_amount', FALSE)) {
     $form['uc_quickpay']['capture_amount']['#field_prefix'] = '<span>' . variable_get('uc_currency_sign', '$') . '</span>';
     $form['uc_quickpay']['refund_amount']['#field_prefix'] = '<span>' . variable_get('uc_currency_sign', '$') . '</span>';
-  } else {
+  }
+  else {
     $form['uc_quickpay']['capture_amount']['#field_suffix'] = '<span>' . variable_get('uc_currency_sign', '$') . '</span>';
     $form['uc_quickpay']['refund_amount']['#field_suffix'] = '<span>' . variable_get('uc_currency_sign', '$') . '</span>';
   }
   // A quickfix to get the textfields up next to their buttons.
   drupal_add_css('#edit-uc-quickpay .form-item-capture-amount, #edit-uc-quickpay .form-item-refund-amount { display: inline; }', 'inline');
-  
+
   $form['uc_quickpay']['cancel'] = array(
     '#type' => 'submit',
     '#value' => t('Cancel'),
     '#validate' => array(),
     '#submit' => array('uc_quickpay_action_submit'),
-    '#prefix' => '<br />'
+    '#prefix' => '<br />',
   );
 
   // Ubercarts original theme_ubercart_by_order_form doesn't allow for more form
-  // elements (it hand-picks the form elements it needs). So we need our own theme
-  // function to handle the output.
+  // elements (it hand-picks the form elements it needs). So we need our own
+  // theme function to handle the output.
   $form['#theme'] = array('uc_quickpay_by_order_form');
 }
 
@@ -151,45 +152,49 @@ function uc_quickpay_form_uc_payment_by_order_form_alter(&$form, &$form_state) {
  */
 function uc_quickpay_action_submit($form, &$form_state) {
   $order = uc_order_load($form['order_id']['#value']);
-  
+
   // These 3 functions are almost copy'paste. They should be build into 1.
   switch ($form_state['values']['op']) {
     case 'Capture':
       _uc_quickpay_capture($order->order_id, $order->data['quickpay_txn_id'], ($form_state['input']['capture_amount']));
       break;
+
     case 'Refund':
       _uc_quickpay_refund($order->order_id, $order->data['quickpay_txn_id'], ($form_state['input']['refund_amount']));
       break;
+
     case 'Cancel':
       _uc_quickpay_cancel($order->order_id, $order->data['quickpay_txn_id']);
       break;
+
   }
 }
 
 /**
- * This is a wrapper for capturing a payment simply by order id and transaction id.
+ * This is a wrapper for capturing a payment simply by order id and
+ * transaction id.
  */
 function _uc_quickpay_capture($order_id, $txn_id, $amount) {
   global $user;
   $order = uc_order_load($order_id);
   $qp = new Quickpay($order->data['quickpay_settings']);
   $txn = $qp->transaction($txn_id);
-  
+
   $txn->capture($amount);
 
   if ($txn->success()) {
     $payment_data = array(
       'type' => 'quickpay_txn_capture',
       'txn_id' => $txn->store(),
-      'txn' => $txn
+      'txn' => $txn,
     );
 
     // Add a payment to the order, with the amount of credits captured.
     uc_payment_enter($order_id, 'quickpay', $txn->amount(), $user->uid, serialize($payment_data), theme('uc_quickpay_captured_comment', array('txn' => $txn)));
   }
   else {
-   drupal_set_message(t("Payment capture failed."), 'error');
-   drupal_set_message($txn->qpstatmsg, 'error');
+    drupal_set_message(t("Payment capture failed."), 'error');
+    drupal_set_message($txn->qpstatmsg, 'error');
   }
 }
 
@@ -201,22 +206,22 @@ function _uc_quickpay_refund($order_id, $txn_id, $amount) {
   $order = uc_order_load($order_id);
   $qp = new Quickpay($order->data['quickpay_settings']);
   $txn = $qp->transaction($txn_id);
-  
+
   $txn->refund($amount);
 
   if ($txn->success()) {
     $payment_data = array(
       'type' => 'quickpay_txn_refund',
       'txn_id' => $txn->store(),
-      'txn' => $txn
+      'txn' => $txn,
     );
 
     // Add a payment to the order, with the amount of credits captured.
     uc_payment_enter($order_id, 'quickpay', -$txn->amount(), $user->uid, serialize($payment_data), theme('uc_quickpay_refunded_comment', array('txn' => $txn)));
   }
   else {
-   drupal_set_message(t("Payment refund failed."), 'error');
-   drupal_set_message($txn->qpstatmsg, 'error');
+    drupal_set_message(t("Payment refund failed."), 'error');
+    drupal_set_message($txn->qpstatmsg, 'error');
   }
 }
 
@@ -228,22 +233,22 @@ function _uc_quickpay_cancel($order_id, $txn_id) {
   $order = uc_order_load($order_id);
   $qp = new Quickpay($order->data['quickpay_settings']);
   $txn = $qp->transaction($txn_id);
-  
+
   $txn->cancel();
 
   if ($txn->success()) {
     $payment_data = array(
       'type' => 'quickpay_txn_cancel',
       'txn_id' => $txn->store(),
-      'txn' => $txn
+      'txn' => $txn,
     );
 
     // Add a payment to the order, with the amount of credits captured.
     uc_payment_enter($order_id, 'quickpay', -$txn->amount(), $user->uid, serialize($payment_data), theme('uc_quickpay_canceled_comment', array('txn' => $txn)));
   }
   else {
-   drupal_set_message(t("Payment cancel failed."), 'error');
-   drupal_set_message($txn->qpstatmsg, 'error');
+    drupal_set_message(t("Payment cancel failed."), 'error');
+    drupal_set_message($txn->qpstatmsg, 'error');
   }
 }
 
@@ -255,14 +260,16 @@ function uc_payment_method_quickpay($op) {
     case 'cart-details':
       return;
       break;
+
     case 'settings':
       $settings = variable_get('uc_quickpay_settings', array());
 
-      // Make the fieldset, where we place the settings form, and additional settings.
+      // Make the fieldset, where we place the settings form, and
+      // additional settings.
       $form['uc_quickpay_settings'] = array(
         '#type' => 'fieldset',
         '#title' => t('Quickpay settings'),
-        '#tree' => TRUE
+        '#tree' => TRUE,
       );
 
       // Add the Quickpay settings form.
@@ -273,24 +280,25 @@ function uc_payment_method_quickpay($op) {
         '#type' => 'fieldset',
         '#title' => t('Callbacks'),
         '#description' => t('Quickpay callback urls.'),
-        '#tree' => TRUE
+        '#tree' => TRUE,
       );
       $form['uc_quickpay_settings']['callbacks']['continue_url'] = array(
         '#type' => 'textfield',
         '#title' => t('Continue URL'),
         '#description' => t('After a successful transaction.'),
-        '#default_value' => (isset($settings['callbacks']['continue_url']) ? $settings['callbacks']['continue_url'] : 'cart/checkout/complete/')
+        '#default_value' => (isset($settings['callbacks']['continue_url']) ? $settings['callbacks']['continue_url'] : 'cart/checkout/complete/'),
       );
       $form['uc_quickpay_settings']['callbacks']['cancel_url'] = array(
         '#type' => 'textfield',
         '#title' => t('Cancel URL'),
         '#description' => t('If the user cancels the quickpay transaction.'),
-        '#default_value' => (isset($settings['callbacks']['cancel_url']) ? $settings['callbacks']['cancel_url'] : 'cart/checkout/')
+        '#default_value' => (isset($settings['callbacks']['cancel_url']) ? $settings['callbacks']['cancel_url'] : 'cart/checkout/'),
       );
 
       $form = system_settings_form($form);
       return $form;
-    break;
+      break;
+
   }
 }
 
@@ -303,13 +311,14 @@ function uc_quickpay_review_form($form, &$form_state, $order) {
   $order_id = $order->order_id;
   $options = array(
     'continue_url' => url($settings['callbacks']['continue_url'], array('absolute' => TRUE)),
-    'cancel_url' => url($settings['callbacks']['cancel_url'], array('absolute' => TRUE))
+    'cancel_url' => url($settings['callbacks']['cancel_url'], array('absolute' => TRUE)),
   );
-  
+
   // The do_complete session variable is used by ubercart, when it's completing
-  // the order, see the uc_cart_checkout_complete() function in uc_cart.pages.inc.
-  // If the user has specified their own custom callback function, this step isn't
-  // needed, but to avoid confusion in the settings form it's always set.
+  // the order, see the uc_cart_checkout_complete() function in
+  // uc_cart.pages.inc. If the user has specified their own custom callback
+  // function, this step isn't needed, but to avoid confusion in the settings
+  // form it's always set.
   $_SESSION['uc_checkout'][$order->order_id]['do_complete'] = TRUE;
 
   return $qp->form($order_id, $order->order_total, $order->currency, 'uc_quickpay', $options);
@@ -325,17 +334,17 @@ function uc_quickpay_quickpay_factory($order_id) {
 /**
  * Implements hook_quickpay_callback().
  */
-function uc_quickpay_quickpay_callback($order_id, $txn) {  
+function uc_quickpay_quickpay_callback($order_id, $txn) {
   // If the transaction has failed, we don't add any payment.
   if (!$txn->success()) {
     return;
   }
 
-  
+
   $payment_data = array(
     'type' => 'quickpay_txn_ready',
     'txn_id' => $txn->store(),
-    'txn' => $txn
+    'txn' => $txn,
   );
   $order = uc_order_load($order_id);
   $order->data['quickpay_settings'] = variable_get('uc_quickpay_settings');

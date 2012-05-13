@@ -17,12 +17,13 @@
 function theme_uc_quickpay_by_order_form($variables) {
   $form = $variables['form'];
 
-  $output = '<p><strong>' . t('Order total:') . '</strong> ' . drupal_render($form['order_total'])
-           . '<br /><strong>' . t('Current balance:') . '</strong> '
-          . drupal_render($form['balance']) . '</p>';
-  $output .= '<p>' . drupal_render($form['payments']) . '</p>'
-           . '<p>' . drupal_render($form['form_id'])
-           . drupal_render($form['form_token']) . '</p>';
+  $output = '<p><strong>' . t('Order total:') . '</strong> ' .
+    drupal_render($form['order_total']) . '<br /><strong>' .
+    t('Current balance:') . '</strong> ' .
+    drupal_render($form['balance']) . '</p>';
+  $output .= '<p>' . drupal_render($form['payments']) . '</p><p>' .
+    drupal_render($form['form_id']) .
+    drupal_render($form['form_token']) . '</p>';
   $output .= drupal_render($form['uc_quickpay']);
 
   return $output;
