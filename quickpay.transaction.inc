@@ -85,6 +85,7 @@ class Quickpay {
     'cardtype',
     'cardnumber',
     'cardexpire',
+    'splitpayment',
     'fraudprobability',
     'fraudremarks',
     'fraudreport',
