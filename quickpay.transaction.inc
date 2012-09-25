@@ -290,6 +290,9 @@ class Quickpay {
     /**
      * We're using curl as drupal_http_request cannot be used in unit tests.
      */
+    if (function_exists('curl_init')) {
+      throw new QuickpayException(t("cURL not found."));
+    }
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, 'https://secure.quickpay.dk/api');
     curl_setopt($ch, CURLOPT_POST, count($request_data));
