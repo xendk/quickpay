@@ -870,10 +870,10 @@ class QuickpayTransaction {
    */
   public function status() {
     $this->qp->request('status', $this->extract('transaction'), $this);
-    // Throw an exception if Quickpay doesn't know this transaction.
-    // Perhaps this is better?
-    /* if (!$this->data['qpstatmsg'] == 'Transaction not found') { */
+    // Throw an exception if Quickpay complains.
     if (!$this->success()) {
+      watchdog('quickpay', 'Error from Quickpay on status request. Message: @message',
+      array('@message' => $this->data['qpstatmsg']), WATCHDOG_ERROR);
       throw new QuickpayException(t("Status error."));
     }
   }
