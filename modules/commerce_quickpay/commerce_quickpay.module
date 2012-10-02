@@ -1,7 +1,5 @@
 <?php
 
-// $Id$
-
 /**
  * @file
  * Implements QuickPay payment method for Drupal Commerce.
@@ -27,7 +25,7 @@ function commerce_quickpay_commerce_payment_method_info() {
 }
 
 /**
- *
+ * Implements hook_menu().
  */
 function commerce_quickpay_menu() {
   $items['admin/commerce/orders/%commerce_order/payment/%commerce_payment_transaction/capture'] = array(
@@ -56,7 +54,7 @@ function commerce_quickpay_menu() {
 }
 
 /**
- *
+ * Menu access callback.
  */
 function commerce_quickpay_transaction_access($op, $transaction) {
   if ($transaction->payment_method != 'quickpay') {
@@ -75,7 +73,7 @@ function commerce_quickpay_transaction_access($op, $transaction) {
 }
 
 /**
- *
+ * Page callback for transaction capture.
  */
 function commerce_quickpay_transaction_capture($transaction) {
   $payment_method = commerce_payment_method_instance_load($transaction->instance_id);
@@ -100,7 +98,7 @@ function commerce_quickpay_transaction_capture($transaction) {
 }
 
 /**
- *
+ * Page callback for canceling transaction.
  */
 function commerce_quickpay_transaction_cancel($transaction) {
   $payment_method = commerce_payment_method_instance_load($transaction->instance_id);
