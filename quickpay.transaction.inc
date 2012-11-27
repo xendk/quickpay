@@ -642,7 +642,7 @@ class Quickpay {
       $currency_info = Quickpay::currency_info($currency_info);
     }
     return (function_exists('bcdiv') ?
-        bcdiv($amount, $currency_info['multiplier']) :
+        bcdiv($amount, $currency_info['multiplier'], log10($currency_info['multiplier'])) :
         $amount / $currency_info['multiplier']);
 
   }
