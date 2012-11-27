@@ -123,6 +123,7 @@ class Quickpay {
       'description' => NULL,
       'continue_url' => NULL,
       'cancel_url' => NULL,
+      'splitpayment' => TRUE,
     );
 
     if (empty($options['continue_url'])) {
@@ -185,6 +186,7 @@ class Quickpay {
     $data['callbackurl'] = url(_quickpay_md5_path('quickpay/' . $order_id . '/' . $module), array('absolute' => TRUE));
 
     $data['autocapture'] = ($options['autocapture']) ? '1' : '0';
+    $data['splitpayment'] = ($options['splitpayment']) ? '1' : '0';
 
     if (!empty($options['description'])) {
       $data['description'] = $options['description'];
@@ -508,6 +510,7 @@ class Quickpay {
       'test_mode' => FALSE,
       'debug' => FALSE,
       'popup' => FALSE,
+      'splitpayment' => TRUE,
     );
 
     $form['merchant'] = array(
@@ -561,6 +564,13 @@ class Quickpay {
     $form['accepted_cards'] = array(
       '#type' => 'quickpay_payment_method',
       '#default_value' => $settings['accepted_cards'],
+    );
+
+    $form['splitpayment'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Split payments'),
+      '#description' => t('Allows for capturing payments in parts.'),
+      '#default_value' => $settings['splitpayment'],
     );
 
     $form['test_mode'] = array(
@@ -775,6 +785,25 @@ class QuickpayTransaction {
     return array();
   }
 
+  /**
+   * Return the balance for this transaction.
+   */
+  public function balance() {
+    $history = $this->history();
+    $balance = 0;
+    foreach ($history as $hist) {
+      if ($hist['msgtype'] == 'authorize' && $hist['qpstat'] == '000') {
+        $balance = $hist['amount'];
+      }
+      elseif ($hist['msgtype'] == 'capture' && $hist['qpstat'] == '000') {
+        $balance -= $hist['amount'];
+      }
+      elseif ($hist['msgtype'] == 'refund' && $hist['qpstat'] == '000') {
+        $balance += $hist['amount'];
+      }
+    }
+    return Quickpay::unwire_amount($balance, $this->currency());
+  }
   /**
    * Extract named object properties into an associative array.
    */
