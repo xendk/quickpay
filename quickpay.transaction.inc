@@ -283,6 +283,7 @@ class Quickpay {
    * Calculate the md5checksum for the request.
    */
   public function md5checksum($data) {
+    // This is the sum of fields in all types of requests.
     $fields = array(
       'protocol',
       'msgtype',
@@ -305,7 +306,19 @@ class Quickpay {
       'transaction',
       'description',
       'testmode',
+      'finalize',
       'splitpayment',
+      'forcemobile',
+      'deadline',
+      'cardhash',
+      'fraud_remote_addr',
+      'fraud_http_accept',
+      'fraud_http_accept_language',
+      'fraud_http_accept_encoding',
+      'fraud_http_accept_charset',
+      'fraud_http_referer',
+      'fraud_http_user_agent',
+      'apikey',
     );
 
     $string = "";

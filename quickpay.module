@@ -10,9 +10,9 @@
  */
 
 // The protocol version we implement for the API calls.
-define('QUICKPAY_VERSION_API', '5');
+define('QUICKPAY_VERSION_API', '7');
 // The protocol version we implement for the payment window.
-define('QUICKPAY_VERSION_POST', '5');
+define('QUICKPAY_VERSION_POST', '7');
 
 /**
  * Implements hook_menu().
