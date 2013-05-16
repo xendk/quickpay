@@ -129,11 +129,18 @@ function quickpay_cards() {
       'name' => t('Mastercard, issued in Denmark'),
       'image' => $images_path . 'mastercard.jpg',
     ),
+    'mastercard-debet-dk' => array(
+      'name' => t('Mastercard debet card, issued in Denmark'),
+      'image' => $images_path . 'mastercard.jpg',
+    ),
     '3d-mastercard' => array(
       'name' => t('Mastercard, using 3D-Secure'),
     ),
     '3d-mastercard-dk' => array(
       'name' => t('Mastercard, issued in Denmark, using 3D-Secure'),
+    ),
+    '3d-mastercard-debet-dk' => array(
+      'name' => t('Mastercard debet, issued in Denmark, using 3D-Secure'),
     ),
     '3d-maestro' => array(
       'name' => t('Maestro'),
