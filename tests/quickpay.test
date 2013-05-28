@@ -22,6 +22,7 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
    * Setup for tests.
    */
   function setUp() {
+    require_once dirname(__FILE__) . '/../quickpay.transaction.inc';
     $settings = variable_get('quickpay_test', array());
     $settings['order_prefix'] .= time() . 't';
     parent::setup('quickpay');
