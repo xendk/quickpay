@@ -322,14 +322,11 @@ class Quickpay {
     );
 
     $string = "";
-    $t = array();
     foreach ($fields as $field) {
       if (isset($data[$field])) {
         $string .= $data[$field];
-        $t[] = $field;
       }
     }
-    /* print_r($string . $this->secret);die(); */
     return md5($string . $this->secret);
   }
 
