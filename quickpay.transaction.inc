@@ -285,6 +285,8 @@ class Quickpay {
    */
   public function md5checksum($data) {
     // This is the sum of fields in all types of requests.
+    // Or used to be, the authorize request has drifted too far, so it's
+    // currently not supported.
     $fields = array(
       'protocol',
       'msgtype',
@@ -307,7 +309,6 @@ class Quickpay {
       'transaction',
       'description',
       'testmode',
-      'finalize',
       'splitpayment',
       'forcemobile',
       'deadline',
@@ -428,6 +429,8 @@ class Quickpay {
 
 
   /**
+   * This method currently doesn't work.
+   *
    * Authorize a payment through the API. Only for test use.
    *
    * In order to handle credit card information, you'll either need a full PCI
@@ -444,6 +447,7 @@ class Quickpay {
    * maintainer, so he knows it's in fact being used.
    */
   public function authorize($cardnumber, $expiration, $cvd, $order_id, $amount, $currency, $options = array()) {
+    throw new QuickpayException(t('Authorize currently not supported in the API.'));
     $options += array(
       'autocapture' => FALSE,
       'splitpayment' => FALSE,
