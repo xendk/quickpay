@@ -72,7 +72,7 @@ function quickpay_md5_check() {
   }
   else {
     $path[] = $md5;
-    watchdog('quickpay', 'Arguments failed md5 sum check. Either someone is trying to abuse the site, or there is a bug somewhere. Path: @path', array('@path' => join('/', $path)), WATCHDOG_WARNING);
+    watchdog('quickpay', 'Arguments failed md5 sum check. Either someone is trying to abuse the site, or there is a bug somewhere. Path: @path', array('@path' => implode('/', $path)), WATCHDOG_WARNING);
   }
   return FALSE;
 }
@@ -250,7 +250,6 @@ function quickpay_process_payment_method($element) {
     ),
   );
 
-
   return $element;
 }
 
@@ -263,9 +262,9 @@ function theme_quickpay_accepted_cards($variables) {
     $children[$key] = $element[$key];
     unset($element[$key]);
   }
-  $number_per_col = ceil(sizeof($children) / 3);
+  $number_per_col = ceil(count($children) / 3);
   $i = 1;
-  while (sizeof($children) > 0) {
+  while (count($children) > 0) {
     $column = array(
       '#prefix' => '<div class="column">',
       '#suffix' => '</div>',
