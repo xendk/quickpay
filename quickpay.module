@@ -190,6 +190,18 @@ function quickpay_cards() {
       'name' => t('Ikano'),
       'image' => $images_path . 'ikano.jpg',
     ),
+    'paypal' => array(
+      'name' => t('PayPal'),
+      'image' => $images_path . 'paypal.jpg',
+    ),
+    'sofort' => array(
+      'name' => t('Sofort'),
+      'image' => $images_path . 'sofort.png',
+    ),
+    'viabill' => array(
+      'name' => t('ViaBill'),
+      'image' => $images_path . 'viabill.png',
+    ),
   );
 }
 
