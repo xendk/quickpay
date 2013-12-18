@@ -303,7 +303,7 @@ class Quickpay {
       'cardnumber',
       'expirationdate',
       'cvd',
-      // 'autofee',
+      'autofee',
       'cardtypelock',
       'ipaddress',
       'transaction',
