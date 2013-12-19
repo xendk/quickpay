@@ -827,7 +827,10 @@ class QuickpayTransaction {
     if (empty($this->data['transaction'])) {
       throw new QuickpayException("No transaction id.");
     }
-    return array_intersect_key($this->data, array_flip(func_get_args()));
+    // PHP 5.2 can't pass the result of func_get_args() directly to another
+    // function, so we use a variable.
+    $args = func_get_args();
+    return array_intersect_key($this->data, array_flip($args));
   }
 
   /**
