@@ -161,10 +161,10 @@ class Quickpay {
     $data['protocol'] = QUICKPAY_VERSION_POST;
     $data['msgtype'] = $options['msgtype'];
     $data['merchant'] = $this->merchant;
-    // FIXME: work together with i18n/locale
+    // Use the users current language
     if ($this->language == LANGUAGE_NONE) {
-      // @todo find users current language
-      $data['language'] = 'da';
+      global $language;
+      $data['language'] = $this->get_country_code($language->language);
     }
     else {
       $data['language'] = $this->language;
@@ -510,6 +510,49 @@ class Quickpay {
   }
 
   /**
+   * Returns an array of languages supported by Quickpay.
+   */
+  protected static function get_languages() {
+    return array(
+      'da' => t('Danish'),
+      'de' => t('German'),
+      'en' => t('English'),
+      'fo' => t('Faeroese'),
+      'fr' => t('French'),
+      'gl' => t('Greenlandish'),
+      'it' => t('Italian'),
+      'no' => t('Norwegian'),
+      'nl' => t('Dutch'),
+      'pl' => t('Polish'),
+      'se' => t('Swedish'),
+    );
+  }
+
+  /**
+   * Return the associated country code of a language code.
+   *
+   * @param string $langcode
+   */
+  protected static function get_country_code($langcode) {
+    $langcodes = array(
+      'da' => 'da',
+      'de' => 'de',
+      'en' => 'en',
+      'fo' => 'fo',
+      'fr' => 'fr',
+      'kl' => 'gl',
+      'it' => 'it',
+      'nb' => 'no',
+      'nn' => 'no',
+      'nl' => 'nl',
+      'pl' => 'pl',
+      'sv' => 'se',
+    );
+
+    return isset($langcodes[$langcode]) ? $langcodes[$langcode] : 'en';
+  }
+
+  /**
    * Returns the settings form.
    *
    * @param array $settings
@@ -552,22 +595,8 @@ class Quickpay {
       '#element_validate' => array('quickpay_order_prefix_validate'),
     );
 
-    $languages = array(
-      LANGUAGE_NONE => t('Language of the user'),
-      'da' => t('Danish'),
-      'de' => t('German'),
-      'en' => t('English'),
-      'fo' => t('Faeroese'),
-      'fr' => t('French'),
-      'gl' => t('Greenlandish'),
-      'it' => t('Italian'),
-      'no' => t('Norwegian'),
-      'nl' => t('Dutch'),
-      'pl' => t('Polish'),
-      'se' => t('Swedish'),
-    );
+    $languages = $this->get_languages() + array(LANGUAGE_NONE => t('Language of the user'));
 
-    // FIXME: work together with i18n
     $form['language'] = array(
       '#type' => 'select',
       '#title' => t('Language'),
