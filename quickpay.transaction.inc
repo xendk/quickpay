@@ -164,7 +164,7 @@ class Quickpay {
     // Use the users current language
     if ($this->language == LANGUAGE_NONE) {
       global $language;
-      $data['language'] = $this->get_country_code($language->language);
+      $data['language'] = self::get_country_code($language->language);
     }
     else {
       $data['language'] = $this->language;
@@ -595,7 +595,7 @@ class Quickpay {
       '#element_validate' => array('quickpay_order_prefix_validate'),
     );
 
-    $languages = $this->get_languages() + array(LANGUAGE_NONE => t('Language of the user'));
+    $languages = self::get_languages() + array(LANGUAGE_NONE => t('Language of the user'));
 
     $form['language'] = array(
       '#type' => 'select',
