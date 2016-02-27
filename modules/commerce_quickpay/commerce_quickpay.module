@@ -304,9 +304,9 @@ function commerce_quickpay_redirect_form($form, &$form_state, $order, $payment_m
 /**
  * Implements hook_quickpay_factory().
  */
-function commerce_quickpay_quickpay_factory($order_id) {
+function commerce_quickpay_quickpay_factory($order_number) {
   // Load order.
-  $order = commerce_order_load($order_id);
+  $order = commerce_order_load_by_number($order_number);
   // Get the payment_method from it.
   $payment_method = commerce_payment_method_instance_load($order->data['payment_method']);
   return new Quickpay($payment_method['settings']);
@@ -315,14 +315,14 @@ function commerce_quickpay_quickpay_factory($order_id) {
 /**
  * Implements hook_quickpay_callback().
  */
-function commerce_quickpay_quickpay_callback($order_id, $txn) {
+function commerce_quickpay_quickpay_callback($order_number, $txn) {
   // Load order.
-  $order = commerce_order_load($order_id);
+  $order = commerce_order_load_by_number($order_number);
   // Get the payment_method from it.
   $payment_method = commerce_payment_method_instance_load($order->data['payment_method']);
 
   // Create transaction.
-  $transaction = commerce_payment_transaction_new('quickpay', $order_id);
+  $transaction = commerce_payment_transaction_new('quickpay', $order->order_id);
   $transaction->instance_id = $payment_method['instance_id'];
   $transaction->remote_id = $txn->store();
   $transaction->message = $txn->qpstatmsg;
