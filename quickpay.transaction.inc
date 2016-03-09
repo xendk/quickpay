@@ -116,6 +116,37 @@ class Quickpay {
 
   /**
    * Returns a form for redirecting user to Quickpay for payment.
+   *
+   * @param string $order_id
+   *   The order ID. This will typically be an ID from the system that is
+   *   managing payments, e.g. a Commerce order ID.
+   * @param string|int|float $amount
+   *   The amount.
+   * @param string $currency
+   *   The ISO 4217 currency code.
+   * @param string $module
+   *   The name of the module managing this payment.
+   * @param array $options
+   *   An array of options. Properties include:
+   *   - 'continue_url': The absolute URL that Quickpay should redirect the user
+   *     to when the payment is complete.
+   *   - 'cancel_url': The absolute URL that Quickpay should redirect the user
+   *     to when the payment is cancelled.
+   *   - 'msgtype': The type of authorization, either 'authorize', for regular
+   *     payments, or 'subscribe' for subscription signups. Optional, defaults
+   *     to 'authorize'.
+   *   - 'description': Description of subscription, required for msgtype
+   *     'subscribe' .
+   *   - 'autocapture': Capture the payment immediately. Must only be used if
+   *     the order is fulfilled immediately, for example if paying for access
+   *     to some content that can then be viewed strait away.
+   *   - 'splitpayment': Allow the transaction to be captured in multiple
+   *     smaller parts. If not set, the can only be captured once.
+   *   - 'autofee': Calculate and add the fee for the acquirer to the amount.
+   *     This will increase the amount charged.
+   *
+   * @return array
+   *   A from render array. The form will submit directly to Quickpay.
    */
   public function form($order_id, $amount, $currency, $module, $options) {
     $options += array(
