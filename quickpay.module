@@ -10,19 +10,20 @@
  */
 
 // The protocol version we implement for the API calls.
-define('QUICKPAY_VERSION_API', '7');
+define('QUICKPAY_VERSION_API', 'v10');
 // The protocol version we implement for the payment window.
-define('QUICKPAY_VERSION_POST', '7');
+define('QUICKPAY_VERSION_POST', 'v10');
 
 /**
  * Implements hook_menu().
  */
 function quickpay_menu() {
-  $items['quickpay'] = array(
+  $items['quickpay/%/%'] = array(
     'title' => 'QuickPay callback page',
     'page callback' => 'quickpay_callback',
     'page arguments' => array(1, 2),
     'access callback' => 'quickpay_md5_check',
+    'access arguments' => array(1, 2),
     'type' => MENU_CALLBACK,
   );
 
@@ -60,13 +61,16 @@ function quickpay_theme() {
 }
 
 /**
- * Access callback to check that the url parameters hasn't been tampered with.
+ * Menu access callback for the Quickpay callback page.
+ *
+ * Checks that the url parameters hasn't been tampered with.
  *
  * @see _quickpay_md5_path()
  */
-function quickpay_md5_check() {
+function quickpay_md5_check($id, $module) {
   $path = arg();
   $md5 = array_pop($path);
+
   if (md5(implode('/', $path) . variable_get('drupal_private_key', rand())) == $md5) {
     return TRUE;
   }
@@ -129,15 +133,22 @@ function quickpay_cards() {
       'name' => t('Mastercard, issued in Denmark'),
       'image' => $images_path . 'mastercard.jpg',
     ),
-    'mastercard-debet-dk' => array(
-      'name' => t('Mastercard debet card, issued in Denmark'),
-      'image' => $images_path . 'mastercard.jpg',
-    ),
     '3d-mastercard' => array(
       'name' => t('Mastercard, using 3D-Secure'),
     ),
     '3d-mastercard-dk' => array(
       'name' => t('Mastercard, issued in Denmark, using 3D-Secure'),
+    ),
+    'mastercard-debet' => array(
+      'name' => t('Mastercard debet card'),
+      'image' => $images_path . 'mastercard.jpg',
+    ),
+    'mastercard-debet-dk' => array(
+      'name' => t('Mastercard debet card, issued in Denmark'),
+      'image' => $images_path . 'mastercard.jpg',
+    ),
+    '3d-mastercard-debet' => array(
+      'name' => t('Mastercard debet, using 3D-Secure'),
     ),
     '3d-mastercard-debet-dk' => array(
       'name' => t('Mastercard debet, issued in Denmark, using 3D-Secure'),
@@ -158,6 +169,14 @@ function quickpay_cards() {
       'name' => t('JCB, using 3D-Secure'),
       'image' => $images_path . '3d-jcb.gif',
     ),
+    'jcb-dk' => array(
+      'name' => t('JCB, issued in Denmark'),
+      'image' => $images_path . 'jcb.jpg',
+    ),
+    '3d-jcb-dk' => array(
+      'name' => t('JCB, issued in Denmark, using 3D-Secure'),
+      'image' => $images_path . '3d-jcb.gif',
+    ),
     'diners' => array(
       'name' => t('Diners'),
       'image' => $images_path . 'diners.jpg',
@@ -174,21 +193,9 @@ function quickpay_cards() {
       'name' => t('American Express, issued in Denmark'),
       'image' => $images_path . 'amexpress.jpg',
     ),
-    'danske-dk' => array(
-      'name' => t('Danske Netbetaling'),
-      'image' => $images_path . 'danskebank.jpg',
-    ),
-    'nordea-dk' => array(
-      'name' => t('Nordea Netbetaling'),
-      'image' => $images_path . 'nordea.jpg',
-    ),
     'fbg1886' => array(
       'name' => t('Forbrugsforeningen'),
       'image' => $images_path . 'forbrugsforeningen.gif',
-    ),
-    'ikano' => array(
-      'name' => t('Ikano'),
-      'image' => $images_path . 'ikano.jpg',
     ),
     'paypal' => array(
       'name' => t('PayPal'),
@@ -201,6 +208,14 @@ function quickpay_cards() {
     'viabill' => array(
       'name' => t('ViaBill'),
       'image' => $images_path . 'viabill.png',
+    ),
+    'klarna' => array(
+      'name' => t('Klarna'),
+      'image' => $images_path . 'klarna.png',
+    ),
+    'mobilepay' => array(
+      'name' => t('MobilePay'),
+      'image' => $images_path . 'mobilepay.png',
     ),
   );
 }
@@ -313,9 +328,9 @@ function quickpay_callback($id, $module) {
     drupal_access_denied();
   }
 
-  $transaction = $qp->transaction_callback();
+  $transaction = $qp->transactionCallback();
   if (!$transaction) {
-    // Quickpay->transaction_callback() already logged it.
+    // Quickpay->transactionCallback() already logged it.
     drupal_access_denied();
     return;
   }
@@ -331,12 +346,20 @@ function quickpay_callback($id, $module) {
 /* --- Internal functions --- */
 
 /**
- * Return an md5 checksummed path.
+ * Return an md5 checksummed path, appending to the original path.
  *
  * This allows us to create paths that's resistant to tampering. By appending
  * an md5 sum of the path and drupal_private_key, and checking the sum in
  * requests, it's not possible to change a path element. This means that we
  * can put data in the URL, and be sure it's not changed.
+ *
+ * @see quickpay_md5_check()
+ *
+ * @param $path
+ *  A Drupal path.
+ *
+ * @return
+ *  The path with the checksum appended as an additional path component.
  */
 function _quickpay_md5_path($path) {
   // The rand is to ensure failure if drupal_private_key haven't been set.

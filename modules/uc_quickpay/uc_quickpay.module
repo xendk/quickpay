@@ -190,11 +190,11 @@ function _uc_quickpay_capture($order_id, $txn_id, $amount) {
     );
 
     // Add a payment to the order, with the amount of credits captured.
-    uc_payment_enter($order_id, 'quickpay', $txn->amount(), $user->uid, serialize($payment_data), theme('uc_quickpay_captured_comment', array('txn' => $txn)));
+    uc_payment_enter($order_id, 'quickpay', $amount, $user->uid, serialize($payment_data), theme('uc_quickpay_captured_comment', array('txn' => $txn)));
   }
   else {
     drupal_set_message(t("Payment capture failed."), 'error');
-    drupal_set_message($txn->qpstatmsg, 'error');
+    drupal_set_message($txn->lastMessage(), 'error');
   }
 }
 
@@ -217,11 +217,11 @@ function _uc_quickpay_refund($order_id, $txn_id, $amount) {
     );
 
     // Add a payment to the order, with the amount of credits captured.
-    uc_payment_enter($order_id, 'quickpay', -$txn->amount(), $user->uid, serialize($payment_data), theme('uc_quickpay_refunded_comment', array('txn' => $txn)));
+    uc_payment_enter($order_id, 'quickpay', -$amount, $user->uid, serialize($payment_data), theme('uc_quickpay_refunded_comment', array('txn' => $txn)));
   }
   else {
     drupal_set_message(t("Payment refund failed."), 'error');
-    drupal_set_message($txn->qpstatmsg, 'error');
+    drupal_set_message($txn->lastMessage(), 'error');
   }
 }
 
@@ -244,11 +244,11 @@ function _uc_quickpay_cancel($order_id, $txn_id) {
     );
 
     // Add a payment to the order, with the amount of credits captured.
-    uc_payment_enter($order_id, 'quickpay', -$txn->amount(), $user->uid, serialize($payment_data), theme('uc_quickpay_canceled_comment', array('txn' => $txn)));
+    uc_payment_enter($order_id, 'quickpay', -$txn->authorizedAmount(), $user->uid, serialize($payment_data), theme('uc_quickpay_canceled_comment', array('txn' => $txn)));
   }
   else {
     drupal_set_message(t("Payment cancel failed."), 'error');
-    drupal_set_message($txn->qpstatmsg, 'error');
+    drupal_set_message($txn->lastMessage(), 'error');
   }
 }
 
@@ -273,7 +273,7 @@ function uc_payment_method_quickpay($op) {
       );
 
       // Add the Quickpay settings form.
-      $form['uc_quickpay_settings'] += Quickpay::settings_form($settings);
+      $form['uc_quickpay_settings'] += Quickpay::settingsForm($settings);
 
       // Add settings, allowing the user to specify custom callback urls.
       $form['uc_quickpay_settings']['callbacks'] = array(
