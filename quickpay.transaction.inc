@@ -15,7 +15,9 @@ class Quickpay {
   protected $test_mode = FALSE;
   protected $debug = FALSE;
   protected $merchant;
-  protected $secret;
+  protected $private_key;
+  protected $agreement_id;
+  protected $agreement_api_key;
   protected $order_prefix = '';
   protected $accepted_cards = array('creditcard');
   protected $popup = FALSE;
@@ -27,14 +29,26 @@ class Quickpay {
    */
   public function __construct($options) {
     // Check options, throw exception if problems.
-    if (empty($options['merchant']) || !preg_match('/^[0-9]{8}$/', $options['merchant'])) {
+    if (empty($options['merchant']) || !preg_match('/^\d+$/', $options['merchant'])) {
       throw new QuickpayException(t('Invalid merchant number'));
     }
     $this->merchant = $options['merchant'];
-    if (empty($options['secret'])) {
-      throw new QuickpayException(t('Empty secret?'));
+
+    if (empty($options['private_key'])) {
+      throw new QuickpayException(t('Empty private_key.'));
     }
-    $this->secret = $options['secret'];
+    $this->private_key = $options['private_key'];
+
+    if (empty($options['agreement_id'])) {
+      throw new QuickpayException(t('Empty agreement_id.'));
+    }
+    $this->agreement_id = $options['agreement_id'];
+
+    if (empty($options['agreement_api_key'])) {
+      throw new QuickpayException(t('Empty agreement_api_key.'));
+    }
+    $this->agreement_api_key = $options['agreement_api_key'];
+
     if (isset($options['test_mode'])) {
       $this->test_mode = (bool) $options['test_mode'];
     }
@@ -64,54 +78,46 @@ class Quickpay {
   }
 
   /**
-   * Load a transaction from $_POST.
+   * Load a transaction from HTTP POST.
+   *
+   * @return
+   *  Either a QuickpayTransaction object, or NULL if there was a problem.
    */
   public function transaction_callback() {
-    static $md5_order = array(
-      'msgtype',
-      'ordernumber',
-      'amount',
-      'currency',
-      'time',
-      'state',
-      'qpstat',
-      'qpstatmsg',
-      'chstat',
-      'chstatmsg',
-      'merchant',
-      'merchantemail',
-      'transaction',
-      'cardtype',
-      'cardnumber',
-      'cardhash',
-      'cardexpire',
-      'acquirer',
-      'splitpayment',
-      'fraudprobability',
-      'fraudremarks',
-      'fraudreport',
-      'fee',
-    );
+    // Copied from other module.
+    // Can't use $_POST with JSON request.
+    $request_body = file_get_contents("php://input");
+    $request = json_decode($request_body);
 
     // Check that it validates.
-    $md5_string = "";
-    foreach ($md5_order as $field) {
-      if (isset($_POST[$field])) {
-        $md5_string .= $_POST[$field];
-      }
-    }
-    if (md5($md5_string . $this->secret) != $_POST['md5check']) {
-      watchdog('quickpay', 'Transaction callback md5 didn\'t verify. MD5 calculated: @md5 Data: @data',
+    $checksum_calculated = $this->get_callback_checksum($request_body);
+    $checksum_requested = $_SERVER['HTTP_QUICKPAY_CHECKSUM_SHA256'];
+
+    if ($checksum_calculated !== $checksum_requested) {
+      watchdog('quickpay', 'Transaction callback checksum didn\'t verify. Checksum calculated: @md5 Data: @data',
         array(
-          '@data' => print_r($_POST, TRUE),
-          '@md5' => md5($md5_string . $this->secret),
+          '@data' => print_r($request, TRUE),
+          '@md5' => $checksum_calculated,
         ), WATCHDOG_ERROR);
       return NULL;
     }
 
     $txn = new QuickpayTransaction($this);
-    $txn->load_response($_POST);
+    $txn->load_response($request);
     return $txn;
+  }
+
+  /**
+   * Calculates the md5checksum for the callback request.
+   *
+   * @param $callback_data
+   *  The data received by the callback page.
+   *
+   * @return
+   *  The checksum.
+   */
+  protected function get_callback_checksum($callback_data) {
+    return hash_hmac("sha256", $callback_data, $this->private_key);
   }
 
   /**
@@ -155,7 +161,6 @@ class Quickpay {
       'description' => NULL,
       'continue_url' => NULL,
       'cancel_url' => NULL,
-      'splitpayment' => TRUE,
     );
 
     if (empty($options['continue_url'])) {
@@ -188,23 +193,16 @@ class Quickpay {
       throw new QuickpayException(t("%module doesn't implement hook_quickpay_callback.", array('%module' => $module)));
     }
 
+    $data = array();
     // Required variables.
-    $data['protocol'] = QUICKPAY_VERSION_POST;
-    $data['msgtype'] = $options['msgtype'];
-    $data['merchant'] = $this->merchant;
-    // Use the users current language
-    if ($this->language == LANGUAGE_NONE) {
-      global $language;
-      $data['language'] = self::get_country_code($language->language);
-    }
-    else {
-      $data['language'] = $this->language;
-    }
-    $data['ordernumber'] = $this->order_prefix . $order_id;
+    $data['version'] = QUICKPAY_VERSION_POST;
+    $data['merchant_id'] = $this->merchant;
+    $data['agreement_id'] = $this->agreement_id;
+    $data['order_id'] = $this->order_prefix . $order_id;
     // Ensure that Order number is at least 4 characters. Else Quickpay will
     // reject the request.
-    if (strlen($data['ordernumber']) < 4) {
-      $data['ordernumber'] = $this->order_prefix . substr('0000' . $order_id,
+    if (strlen($data['order_id']) < 4) {
+      $data['order_id'] = $this->order_prefix . substr('0000' . $order_id,
                              -4+strlen($this->order_prefix));
     }
 
@@ -213,37 +211,29 @@ class Quickpay {
     $data['currency'] = $currency_info['code'];
     $data['continueurl'] = $options['continue_url'];
     $data['cancelurl'] = $options['cancel_url'];
-
-    // End of required variables.
     $data['callbackurl'] = url(_quickpay_md5_path('quickpay/' . $order_id . '/' . $module), array('absolute' => TRUE));
+    // End of required variables.
 
-    $data['autocapture'] = ($options['autocapture']) ? '1' : '0';
-    $data['splitpayment'] = ($options['splitpayment']) ? '1' : '0';
-
-    if (!empty($options['description'])) {
-      $data['description'] = $options['description'];
-    }
-
-    if ($this->test_mode) {
-      $data['testmode'] = '1';
-      $data['ordernumber'] .= "T";
+    // Use the user's current language
+    if ($this->language == LANGUAGE_NONE) {
+      global $language;
+      $data['language'] = self::get_country_code($language->language);
     }
     else {
-      $data['testmode'] = '0';
+      $data['language'] = $this->language;
     }
 
-    if (!empty($options['autofee']) && $options['autofee']) {
-      $data['autofee'] = 1;
+    $data['autocapture'] = ($options['autocapture']) ? '1' : '0';
+
+    // Build the checksum.
+    $data['checksum'] = $this->get_checksum($data);
+
+    if (module_exists('devel')) {
+      dpm($data);
     }
-
-    $data['cardtypelock'] = $this->get_cardtypelock();
-
-    // Other possible variables:
-    // $data['CUSTOM_*'];
-    $data['md5check'] = $this->md5checksum($data);
 
     $form['#method'] = 'POST';
-    $form['#action'] = 'https://secure.quickpay.dk/form/';
+    $form['#action'] = 'https://payment.quickpay.net';
 
     foreach ($data as $name => $value) {
       $form[$name] = array('#type' => 'hidden', '#value' => $value);
@@ -313,6 +303,24 @@ class Quickpay {
 
   /**
    * Calculate the md5checksum for the request.
+   *
+   * http://tech.quickpay.net/payments/hosted/#checksum
+   *
+   * @param array $data
+   *   The data to POST to Quickpay.
+   *
+   * @return string
+   *   The checksum.
+   */
+  protected function get_checksum(array $data) {
+    $api_key = $this->agreement_api_key;
+    ksort($data);
+    $base = implode(" ", $data);
+    return hash_hmac("sha256", $base, $api_key);
+  }
+
+  /**
+   * Calculate the md5checksum for the request. KILL???
    */
   public function md5checksum($data) {
     // This is the sum of fields in all types of requests.
@@ -592,7 +600,9 @@ class Quickpay {
   public static function settings_form($settings = array()) {
     $settings += array(
       'merchant' => '',
-      'secret' => '',
+      'private_key' => '',
+      'agreement_id' => '',
+      'agreement_api_key' => '',
       'order_prefix' => '',
       'language' => LANGUAGE_NONE,
       'accepted_cards' => array('creditcard'),
@@ -602,19 +612,36 @@ class Quickpay {
       'splitpayment' => TRUE,
     );
 
+    // Found in the "Integration" tab inside the QuickPay manager
     $form['merchant'] = array(
       '#type' => 'textfield',
-      '#title' => t('Merchant number'),
-      '#description' => t('Merchant id as shown in the QuickPay admin. NOTE: <em>not</em> the same as PBS id'),
+      '#title' => t('Merchant ID'),
+      '#description' => t('The Merchant ID as shown in the QuickPay admin.'),
       '#default_value' => $settings['merchant'],
       '#required' => TRUE,
     );
 
-    $form['secret'] = array(
+    $form['private_key'] = array(
       '#type' => 'textfield',
-      '#title' => t('MD5 secret'),
-      '#description' => t('MD5 secret as shown in the Quickpay admin.'),
-      '#default_value' => $settings['secret'],
+      '#title' => t('Private key'),
+      '#description' => t('Your private key.'),
+      '#default_value' => $settings['private_key'],
+      '#required' => TRUE,
+    );
+
+    $form['agreement_id'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Agreement ID'),
+      '#description' => t('This is the Payment Window Agreement ID.'),
+      '#default_value' => $settings['agreement_id'],
+      '#required' => TRUE,
+    );
+
+    $form['agreement_api_key'] = array(
+      '#type' => 'textfield',
+      '#title' => t('API key'),
+      '#description' => t('This is the Payment Window API key.'),
+      '#default_value' => $settings['agreement_api_key'],
       '#required' => TRUE,
     );
 
@@ -664,6 +691,7 @@ class Quickpay {
 
     return $form;
   }
+
   /**
    * Get information about an currency.
    *
@@ -907,20 +935,32 @@ class QuickpayTransaction {
   /**
    * Load a request response.
    */
-  public function load_response(array $response) {
-    if (!isset($response['qpstat'])) {
-      throw new QuickpayException(t('No state from Quickpay'));
+  public function load_response($response) {
+    if (is_object($response)) {
+      $response = (array) $response;
     }
-    $success = $response['qpstat'] == '000';
-    foreach ($this->data as $field => $dummy) {
-      if (isset($response[$field])) {
-        // Only overwrite with empty values when the request was a
-        // success. Quickpay returns empty fields on failure.
-        if ($success || !empty($response[$field])) {
-          $this->data[$field] = $response[$field];
-        }
-      }
+    if (!is_array($response)) {
+      throw new QuickpayException(t('Transaction could not be loaded from response: !response', array(
+        '!response', print_r($response, TRUE),
+      )));
     }
+
+    $operation = $response['operations'][0];
+    if (is_object($operation)) {
+      $operation = (array) $operation;
+    }
+    $this->data['id'] = $response['id'];
+    $this->data['approved'] = $operation['qp_status_code'] == '20000';
+    $this->data['order_id'] = $response['order_id'];
+    $this->data['type'] = $operation['type'];
+    $this->data['amount'] = $operation['amount'];
+    $this->data['currency'] = $response['currency'];
+    $this->data['created'] = $response['created_at'];
+    $this->data['qp_status_code'] = $operation['qp_status_code'];
+    $this->data['qp_status_msg'] = $operation['qp_status_msg'];
+    $this->data['acquirer'] = $response['acquirer'];
+    $this->data['aq_status_code'] = $operation['aq_status_code'];
+    $this->data['aq_status_msg'] = $operation['aq_status_msg'];
     $this->loaded = TRUE;
   }
 
@@ -999,9 +1039,9 @@ class QuickpayTransaction {
    * Whether this transaction was a success.
    */
   public function success() {
-    if (!isset($this->data['qpstat'])) {
+    if (!isset($this->data['qp_status_code'])) {
       return FALSE;
     }
-    return $this->data['qpstat'] == '000';
+    return $this->data['qp_status_code'] == '20000';
   }
 }

@@ -115,7 +115,7 @@ function quickpay_test_quickpay_factory($order_id) {
 }
 
 /**
- * Callback from Quickpay.
+ * Implements hook_quickpay_callback().
  */
 function quickpay_test_quickpay_callback($order_id, $txn) {
   // Save the transaction where quickpay_test_continue_page can get at it.
@@ -134,5 +134,11 @@ function _quickpay_test_settings() {
   $settings = variable_get('quickpay_test_settings', variable_get('quickpay_test', array()));
   // Always use test mode.
   $settings['test_mode'] = TRUE;
+  // Add in defaults so Quickpay::__construct() doesn't complain.
+  $settings += array(
+    'merchant' => '',
+    'secret' => '',
+  );
+
   return $settings;
 }
