@@ -203,7 +203,7 @@ class Quickpay {
     // reject the request.
     if (strlen($data['order_id']) < 4) {
       $data['order_id'] = $this->order_prefix . substr('0000' . $order_id,
-                             -4+strlen($this->order_prefix));
+                              -4+strlen($this->order_prefix));
     }
 
     $currency_info = Quickpay::currency_info($currency);
@@ -250,55 +250,15 @@ class Quickpay {
   }
 
   /**
-   * Send a request to Quickpay. Primarily for use by QuickpayTransaction.
+   * Return Quickpay client.
+   *
+   * @return Quickpay\Quickpay
+   *   The client.
    */
-  public function request($type, $request_data, QuickpayTransaction $transaction) {
-    if (!is_array($request_data)) {
-      $request_data = (array) $request_data;
-    }
-
-    $request_data['protocol'] = QUICKPAY_VERSION_API;
-    $request_data['msgtype'] = $type;
-    $request_data['merchant'] = $this->merchant;
-    $request_data['md5check'] = $this->md5checksum($request_data);
-
-    if ($this->debug) {
-      debug($request_data, 'Quickpay request parameters');
-    }
-
-    if (!$this->validate_request($request_data)) {
-      throw new QuickpayException(t("Request message didn't pass validation."));
-    }
-    $request_options = array(
-      'headers' => array('Content-Type' => 'application/x-www-form-urlencoded'),
-      'method' => 'POST',
-      'data' => http_build_query($request_data, FALSE, '&'),
-      'max_redirects' => 0,
-    );
-    /*
-     * We're using curl as drupal_http_request cannot be used in unit tests.
-     */
-    if (!function_exists('curl_init')) {
-      throw new QuickpayException(t("cURL not found."));
-    }
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, 'https://secure.quickpay.dk/api');
-    curl_setopt($ch, CURLOPT_POST, count($request_data));
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($request_data, FALSE, '&'));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-    $response = curl_exec($ch);
-
-
-    if ($this->debug) {
-      debug($response, 'Quickpay response');
-    }
-
-    if (!$response) {
-      throw new QuickpayException(t('Server returned non-success code or empty result'));
-    }
-    $transaction->load_response($this->response($response));
-
-    return $transaction;
+  public function client() {
+    // todo: only load once.
+    module_load_include('php', 'quickpay', 'lib/QuickPay/QuickPay');
+    return new Quickpay\Quickpay(':' . $this->agreement_api_key);
   }
 
   /**
@@ -320,154 +280,6 @@ class Quickpay {
   }
 
   /**
-   * Calculate the md5checksum for the request. KILL???
-   */
-  public function md5checksum($data) {
-    // This is the sum of fields in all types of requests.
-    // Or used to be, the authorize request has drifted too far, so it's
-    // currently not supported.
-    $fields = array(
-      'protocol',
-      'msgtype',
-      'merchant',
-      'language',
-      'ordernumber',
-      'amount',
-      'finalize',
-      'currency',
-      'continueurl',
-      'cancelurl',
-      'callbackurl',
-      'autocapture',
-      'cardnumber',
-      'expirationdate',
-      'cvd',
-      'autofee',
-      'cardtypelock',
-      'ipaddress',
-      'transaction',
-      'description',
-      'testmode',
-      'splitpayment',
-      'forcemobile',
-      'deadline',
-      'cardhash',
-      'fraud_remote_addr',
-      'fraud_http_accept',
-      'fraud_http_accept_language',
-      'fraud_http_accept_encoding',
-      'fraud_http_accept_charset',
-      'fraud_http_referer',
-      'fraud_http_user_agent',
-      'apikey',
-    );
-
-    $string = "";
-    foreach ($fields as $field) {
-      if (isset($data[$field])) {
-        $string .= $data[$field];
-      }
-    }
-    return md5($string . $this->secret);
-  }
-
-  /**
-   * Validates that the request fields is formatted as expected by Quickpay.
-   *
-   * Throws an exception on failure.
-   *
-   * @param array $data
-   *   Associative array of parameters.
-   *
-   * @return bool
-   *   Always true, an exception is thrown on error.
-   */
-  protected function validate_request($data) {
-    $fields = array(
-      'protocol' => '/^(' . QUICKPAY_VERSION_API . '|' . QUICKPAY_VERSION_POST . ')$/',
-      'msgtype' => '/^[a-z]+$/',
-      'merchant' => '/^[0-9]{8}$/',
-      'ordernumber' => '/^[a-zA-Z0-9]{4,20}$/',
-      'amount' => '/^[0-9]{1,10}$/',
-      'finalize' => '/^[0-1]{1}$/',
-      'currency' => '/^[A-Z]{3}$/',
-      'autocapture' => '/^[0-1]{1}$/',
-      'cardnumber' => '/^[0-9]{13,19}$/',
-      'expirationdate' => '/^[0-9]{4}$/',
-      'cvd' => '/^[0-9]{0,4}$/',
-      'cardtypelock' => '/^[a-zA-Z,]{0,128}$/',
-      'splitpayment' => '/^[0-1]{1}$/',
-      'transaction' => '/^[0-9]{1,32}$/',
-      'description' => '/^[\w _\-\.]{0,20}$/',
-      'md5check' => '/^[a-z0-9]{32}$/',
-      'CUSTOM_' => '/^[\w _\-\.]{0,20}$/',
-    );
-
-    foreach ($data as $field => $value) {
-      // No NULL values please.
-      if (is_null($value)) {
-        throw new QuickpayException(t('%field cannot be NULL', array('%field' => $field)));
-      }
-      elseif ($fields[$field]) {
-        if (!preg_match($fields[$field], $value)) {
-          // We're not logging the actual value, as that might be
-          // sensitive information.
-          throw new QuickpayException(t("%field didn't pass validation.",
-              array('%field' => $field)));
-        }
-      }
-      elseif (preg_match('/^CUSTOM_/', $field)) {
-        if (!preg_match($fields['CUSTOM_'], $value)) {
-          throw new QuickpayException(t("%field didn't pass validation.",
-              array('%field' => $field)));
-        }
-      }
-      else {
-        throw new QuickpayException(t('Unknown field %field.',
-            array('%field' => $field)));
-      }
-    }
-    return TRUE;
-  }
-
-  /**
-   * Parses the XML response from Quickpay into an associative
-   * array. Internal use only.
-   *
-   * @param string $response
-   *   The XML response.
-   *
-   * @return array
-   *   XML as an associative array.
-   */
-  protected function response($response) {
-    // Load XML in response into DOM.
-    $result = array();
-    $dom = new DOMDocument();
-    $dom->loadXML($response);
-    // Find elements en response and put them in an associative array.
-    $xpath = new DOMXPath($dom);
-    $elements = $xpath->query('/response/*');
-    foreach ($elements as $cn) {
-      // If the element has (real) children - this is the case for
-      // status->history and chstatus->entry.
-      if ($cn->childNodes->length > 1) {
-        $child = array();
-        foreach ($cn->childNodes as $hn) {
-          $child[$hn->nodeName] = $hn->nodeValue;
-        }
-        $result[$cn->nodeName][] = $child;
-      }
-      else {
-        $result[$cn->nodeName] = $cn->nodeValue;
-      }
-    }
-
-    return $result;
-  }
-
-
-  /**
    * This method currently doesn't work.
    *
    * Authorize a payment through the API. Only for test use.
@@ -486,24 +298,44 @@ class Quickpay {
    * maintainer, so he knows it's in fact being used.
    */
   public function authorize($cardnumber, $expiration, $cvd, $order_id, $amount, $currency, $options = array()) {
-    throw new QuickpayException(t('Authorize currently not supported in the API.'));
-    $options += array(
-      'autocapture' => FALSE,
-      'splitpayment' => FALSE,
-    );
     $currency_info = Quickpay::currency_info($currency);
-    $request_data = array(
-      'cardnumber' => $cardnumber,
-      'expirationdate' => $expiration,
-      'cvd' => $cvd,
-      'ordernumber' => $this->ordernumber($order_id),
-      'amount' => Quickpay::wire_amount($amount, $currency_info),
+
+    // Create payment.
+    $data = array(
+      'order_id' => $this->ordernumber($order_id),
       'currency' => $currency_info['code'],
-      'autocapture' => $options['autocapture'] ? '1' : '0',
-      'splitpayment' => $options['splitpayment'] ? '1' : '0',
     );
+    $payment_res = $this->client()->request->post('/payments', $data);
+
+    if (!$payment_res->is_success()) {
+      Quickpay::log_error('Error creating payment.', $payment_res);
+      throw new QuickpayException('Error creating payment.');
+    }
+
+    $payment = $payment_res->as_object();
+    // Authorise the payment.
+    $data = array(
+      'amount' => Quickpay::wire_amount($amount, $currency_info),
+      'card[number]' => $cardnumber,
+      'card[expiration]' => $expiration,
+      'card[cvd]' => $cvd,
+      'auto_capture' => isset($options['autocapture']) && $options['autocapture'],
+      'test_mode' => $this->test_mode,
+      // Apparently Quickpay doesn't figure out the acquirer itself when using
+      // the API anymore. As this is only for testing, we hardcore it.
+      'acquirer' => 'clearhaus',
+    );
+    $authorize_res = $this->client()->request->post("/payments/{$payment->id}/authorize?synchronized", $data);
+
+    if (!$authorize_res->is_success()) {
+      Quickpay::log_error('Error authorizing payment.', $authorize_res);
+      throw new QuickpayException('Error authorizing payment.');
+    }
+
     $transaction = new QuickpayTransaction($this);
-    return $this->request('authorize', $request_data, $transaction);
+    $transaction->load_response($authorize_res->as_object());
+    return $transaction;
+
   }
 
   /**
@@ -518,7 +350,7 @@ class Quickpay {
       'description' => $description,
     );
     $transaction = new QuickpayTransaction($this);
-    return $this->request('subscribe', $request_data, $transaction);
+    // return $this->request('subscribe', $request_data, $transaction);
   }
 
   /**
@@ -668,6 +500,7 @@ class Quickpay {
       '#default_value' => $settings['accepted_cards'],
     );
 
+    // todo: remove this and all usage.
     $form['splitpayment'] = array(
       '#type' => 'checkbox',
       '#title' => t('Split payments'),
@@ -759,6 +592,26 @@ class Quickpay {
         $amount / $currency_info['multiplier']);
 
   }
+
+  /**
+   * Log a client error.
+   */
+  public static function log_error($message, $response) {
+    $error = $response->as_object();
+    if (!empty($error->message)) {
+      $message .= "\n" . $error->message;
+    }
+    if (!empty($error->errors)) {
+      foreach ($error->errors as $key => $val) {
+        $message .= "\n" . $key . ': ' . implode(', ', $val);
+      }
+    }
+
+    //debug($message);
+    // Bad errors doesn't return an object, but a string.
+    //debug($response);
+    // watchdog('quickpay', '@message', array('@message' => $message), WATCHDOG_ERROR);
+  }
 }
 
 /**
@@ -808,14 +661,12 @@ class QuickpayTransaction {
    */
   public function __construct(Quickpay $qp, $txnid = NULL) {
     $this->qp = $qp;
-    foreach (QuickpayTransaction::$fields as $field) {
-      $this->data[$field] = NULL;
-    }
+    $this->data = array();
     if (preg_match('/^a:/', $txnid)) {
-      list($this->data['transaction'], $this->data['currency']) = unserialize($txnid);
+      list($this->data['id'], $this->data['currency']) = unserialize($txnid);
     }
     else {
-      $this->data['transaction'] = $txnid;
+      $this->data['id'] = $txnid;
     }
   }
 
@@ -826,12 +677,21 @@ class QuickpayTransaction {
     if (!$this->loaded) {
       $this->status();
     }
-    if ($field == 'currency' || $field == 'amount' || $field == 'history') {
+
+    if (in_array($field, array('currency', 'amount', 'history'))) {
       return $this->{$field}();
     }
+
+    // Legacy. Should have made an abstracted message property/method earlier,
+    // but that's too late.
+    if ($field == 'qpstatmsg') {
+      $this->last_message();
+    }
+
     if (array_key_exists($field, $this->data)) {
       return $this->data[$field];
     }
+
     throw new QuickpayException(t("Unknown property @name", array('@name' => $field)));
   }
 
@@ -845,7 +705,43 @@ class QuickpayTransaction {
     if (isset($this->data[$field])) {
       return $this->data[$field];
     }
+  }
 
+  /**
+   * Get last transaction operation.
+   */
+  protected function get_last_operation() {
+    if (!$this->loaded) {
+      $this->status();
+    }
+    if (isset($this->data['operations'])) {
+      $operations = $this->data['operations'];
+      return array_pop($operations);
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Get last operation message.
+   */
+  public function last_message() {
+    if ($operation = $this->get_last_operation()) {
+      return $operation->qp_status_msg;
+    }
+
+    return '';
+  }
+
+  /**
+   * Get last operation state.
+   */
+  public function last_state() {
+    if ($operation = $this->get_last_operation()) {
+      return $operation->type;
+    }
+
+    return '';
   }
 
   /**
@@ -945,22 +841,7 @@ class QuickpayTransaction {
       )));
     }
 
-    $operation = $response['operations'][0];
-    if (is_object($operation)) {
-      $operation = (array) $operation;
-    }
-    $this->data['id'] = $response['id'];
-    $this->data['approved'] = $operation['qp_status_code'] == '20000';
-    $this->data['order_id'] = $response['order_id'];
-    $this->data['type'] = $operation['type'];
-    $this->data['amount'] = $operation['amount'];
-    $this->data['currency'] = $response['currency'];
-    $this->data['created'] = $response['created_at'];
-    $this->data['qp_status_code'] = $operation['qp_status_code'];
-    $this->data['qp_status_msg'] = $operation['qp_status_msg'];
-    $this->data['acquirer'] = $response['acquirer'];
-    $this->data['aq_status_code'] = $operation['aq_status_code'];
-    $this->data['aq_status_msg'] = $operation['aq_status_msg'];
+    $this->data = $response;
     $this->loaded = TRUE;
   }
 
@@ -970,7 +851,7 @@ class QuickpayTransaction {
    */
   public function store() {
     if ($this->data['currency']) {
-      return serialize(array($this->data['transaction'], $this->data['currency']));
+      return serialize(array($this->data['id'], $this->data['currency']));
     }
     return $this->transaction;
   }
@@ -979,41 +860,54 @@ class QuickpayTransaction {
    * Capture on an authorised transaction.
    */
   public function capture($amount, $finalize = FALSE) {
-    $this->qp->request('capture', $this->extract('transaction') + array('amount' => $this->wire_amount($amount), 'finalize' => $finalize ? '1' : '0'), $this);
+    // Capture payment.
+    $data = array(
+      'amount' => $this->wire_amount($amount),
+      // Finalize no longer supported.
+    );
+    $capture_res = $this->qp->client()->request->post("/payments/{$this->data['id']}/capture?synchronized", $data);
+
+    if (!$capture_res->is_success()) {
+      Quickpay::log_error('Error capturing payment.', $capture_res);
+      throw new QuickpayException('Error capturing payment.');
+    }
+
+    $this->load_response($capture_res->as_object());
   }
 
   /**
    * Update this transaction with status information from Quickpay.
    */
   public function status() {
-    $this->qp->request('status', $this->extract('transaction'), $this);
-    // Throw an exception if Quickpay complains.
-    if (!$this->success()) {
-      watchdog('quickpay', 'Error from Quickpay on status request. Message: @message',
-      array('@message' => $this->data['qpstatmsg']), WATCHDOG_ERROR);
-      throw new QuickpayException(t("Status error."));
+    $payment_res = $this->qp->client()->request->get("/payments/{$this->data['id']}");
+
+    if (!$payment_res->is_success()) {
+      Quickpay::log_error('Error fetching payment.', $payment_res);
+      throw new QuickpayException('Error fetching payment.');
     }
+
+    $this->load_response($payment_res->as_object());
   }
 
   /**
    * Renew an authorisation.
    */
   public function renew() {
-    $this->qp->request('renew', $this->extract('transaction'), $this);
+    // $this->qp->request('renew', $this->extract('transaction'), $this);
   }
 
   /**
    * Cancel an authorised transaction.
    */
   public function cancel() {
-    $this->qp->request('cancel', $this->extract('transaction'), $this);
+    // $this->qp->request('cancel', $this->extract('transaction'), $this);
   }
 
   /**
    * Refund previously captured money.
    */
   public function refund($amount) {
-    $this->qp->request('refund', $this->extract('transaction') + array('amount' => $this->wire_amount($amount)), $this);
+    // $this->qp->request('refund', $this->extract('transaction') + array('amount' => $this->wire_amount($amount)), $this);
   }
 
   /**
@@ -1032,16 +926,19 @@ class QuickpayTransaction {
       'autocapture' => $options['autocapture'] ? '1' : '0',
     );
     $transaction = new QuickpayTransaction($this->qp);
-    return $this->qp->request('recurring', $request_data, $transaction);
+    // return $this->qp->request('recurring', $request_data, $transaction);
   }
 
   /**
    * Whether this transaction was a success.
    */
   public function success() {
-    if (!isset($this->data['qp_status_code'])) {
-      return FALSE;
+    if ($operation = $this->get_last_operation()) {
+      if ($operation->qp_status_code == '20000') {
+        return TRUE;
+      }
     }
-    return $this->data['qp_status_code'] == '20000';
+
+    return FALSE;
   }
 }
