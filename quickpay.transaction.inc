@@ -325,6 +325,7 @@ class Quickpay {
       // the API anymore. As this is only for testing, we hardcore it.
       'acquirer' => 'clearhaus',
     );
+
     $authorize_res = $this->client()->request->post("/payments/{$payment->id}/authorize?synchronized", $data);
 
     if (!$authorize_res->is_success()) {
@@ -335,7 +336,6 @@ class Quickpay {
     $transaction = new QuickpayTransaction($this);
     $transaction->load_response($authorize_res->as_object());
     return $transaction;
-
   }
 
   /**
@@ -351,6 +351,7 @@ class Quickpay {
     );
     $transaction = new QuickpayTransaction($this);
     // return $this->request('subscribe', $request_data, $transaction);
+    throw new QuickpayException("Not implemented.");
   }
 
   /**
@@ -786,23 +787,28 @@ class QuickpayTransaction {
 
   /**
    * Return the balance for this transaction.
+   *
+   * This is (for histotical reasons) how much is still left to be captured of
+   * the authorized amount.
    */
   public function balance() {
-    $history = $this->history();
-    $balance = 0;
-    foreach ($history as $hist) {
-      if ($hist['msgtype'] == 'authorize' && $hist['qpstat'] == '000') {
-        $balance = $hist['amount'];
+    // The v10 API keeps track of the balance, but as how much has been
+    // captured. So we find the authorization amount and subtracts the balance
+    // from that.
+    if (isset($this->data['operations'])) {
+      foreach ($this->data['operations'] as $operation) {
+        if ($operation->type == 'authorize') {
+          $balance = $operation->amount;
+          break;
+        }
       }
-      elseif ($hist['msgtype'] == 'capture' && $hist['qpstat'] == '000') {
-        $balance -= $hist['amount'];
-      }
-      elseif ($hist['msgtype'] == 'refund' && $hist['qpstat'] == '000') {
-        $balance += $hist['amount'];
+
+      if ($balance) {
+        return Quickpay::unwire_amount($balance - $this->data['balance'], $this->currency());
       }
     }
-    return Quickpay::unwire_amount($balance, $this->currency());
   }
+
   /**
    * Extract named object properties into an associative array.
    */
@@ -893,21 +899,45 @@ class QuickpayTransaction {
    * Renew an authorisation.
    */
   public function renew() {
-    // $this->qp->request('renew', $this->extract('transaction'), $this);
+    $renew_res = $this->qp->client()->request->post("/payments/{$this->data['id']}/renew?synchronized");
+
+    if (!$renew_res->is_success()) {
+      Quickpay::log_error('Error renewing payment.', $renew_res);
+      throw new QuickpayException('Error renewing payment.');
+    }
+
+    $this->load_response($renew_res->as_object());
   }
 
   /**
    * Cancel an authorised transaction.
    */
   public function cancel() {
-    // $this->qp->request('cancel', $this->extract('transaction'), $this);
+    $cancel_res = $this->qp->client()->request->post("/payments/{$this->data['id']}/cancel?synchronized");
+
+    if (!$cancel_res->is_success()) {
+      Quickpay::log_error('Error cancelling payment.', $cancel_res);
+      throw new QuickpayException('Error cancelling payment.');
+    }
+
+    $this->load_response($cancel_res->as_object());
   }
 
   /**
    * Refund previously captured money.
    */
   public function refund($amount) {
-    // $this->qp->request('refund', $this->extract('transaction') + array('amount' => $this->wire_amount($amount)), $this);
+    $data = array(
+      'amount' => $this->wire_amount($amount),
+    );
+    $refund_res = $this->qp->client()->request->post("/payments/{$this->data['id']}/refund?synchronized", $data);
+
+    if (!$refund_res->is_success()) {
+      Quickpay::log_error('Error refunding payment.', $refund_res);
+      throw new QuickpayException('Error refunding payment.');
+    }
+
+    $this->load_response($refund_res->as_object());
   }
 
   /**
@@ -927,6 +957,8 @@ class QuickpayTransaction {
     );
     $transaction = new QuickpayTransaction($this->qp);
     // return $this->qp->request('recurring', $request_data, $transaction);
+    throw new QuickpayException("Not implemented.");
+
   }
 
   /**

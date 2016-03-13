@@ -48,7 +48,7 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
   public function testCore() {
     $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 1, 100, 'DKK');
     $this->assertTrue($txn->success(), "Authorize works.");
-    $this->assertTrue($txn->last_state() == 'authorize', "Transaction state is 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is 'authorized'.");
 
     // This should fail.
     try {
@@ -58,45 +58,46 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
     catch (Exception $e) {
       $this->pass("Capturing too much throws exception.");
     }
-    $this->assertTrue($txn->last_state() == 'authorize', "Transaction state is still 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is still 'authorized'.");
 
     $txn2 = $this->qp->transaction($txn->store());
     $txn2->status();
-    $this->assertTrue($txn2->last_state() == 'authorize', "Transaction state is properly loaded.");
-    // $this->assertTrue(!empty($txn2->history), "History is not empty when asking for status.");
+    $this->assertEqual($txn2->last_state(), 'authorize', "Transaction state is properly loaded.");
 
     // But this should work.
     $txn->capture(100);
     $this->assertTrue($txn->success(), "Can capture authorized amount.");
-    $this->assertTrue($txn->last_state() == 'capture', "Transaction state is 'captured'.");
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is 'captured'.");
 
     $txn2 = $this->qp->transaction($txn->store());
-    $this->assertTrue($txn->last_state() == 'capture', "Transaction state is properly loaded.");
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is properly loaded.");
 
     // Test capture failure.
     $txn = $this->qp->authorize($this->cards['dk-no-capture'], '0319', '123', 8, 100, 'DKK');
     $this->assertTrue($txn->success(), "Authorize works.");
-    $this->assertTrue($txn->last_state() == 'authorize', "Transaction state is 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is 'authorized'.");
 
     // Try to capture and be rejected.
     $txn->capture(100);
     $this->assertFalse($txn->success(), "Rejected capture is properly handled.");
-    $this->assertTrue($txn->last_state() == 'capture', "Transaction state is 'capture' after rejection.");
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is 'capture' after rejection.");
 
     // Lets try partial capture...
     $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 2, 100, 'DKK');
     $this->assertTrue($txn->success(), "Authorize works.");
-    $this->assertTrue($txn->last_state() == 'authorize', "Transaction state is 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is 'authorized'.");
 
     // This should work.
-    $txn->capture(50);
+    $txn->capture(30);
     $this->assertTrue($txn->success(), "Can capture less than authorized amount.");
-    $this->assertTrue($txn->last_state() == 'capture', "Transaction state is 'captured'.");
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is 'captured'.");
+    $this->assertEqual($txn->balance(), 70, "Balance is right.");
 
     // Now capture the rest.
-    $txn->capture(50);
+    $txn->capture(70);
     $this->assertTrue($txn->success(), "Can capture the rest of the authorized amount.");
-    $this->assertTrue($txn->last_state() == 'capture', "Transaction state is 'captured'.");
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is 'captured'.");
+    $this->assertEqual($txn->balance(), 0, "Balance is right.");
   }
 
   /**
@@ -105,11 +106,17 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
   public function testAutocapture() {
     $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 1, 100, 'DKK', array('autocapture' => TRUE));
     $this->assertTrue($txn->success(), "Authorize with autocapture works.");
-    $this->assertTrue($txn->state == QuickpayTransaction::CAPTURED, "Transaction state is 'captured'.");
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is 'captured'.");
 
     // This should fail.
-    $txn->capture(1);
-    $this->assertFalse($txn->success(), "Cannot capture on autocaptured transaction");
+    try {
+      $txn->capture(1);
+      $this->fail("Capturing on autocaptured transaction should throw exception.");
+    }
+    catch (Exception $e) {
+      $this->pass("Cannot capture on autocaptured transaction");
+    }
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is still 'captured'.");
   }
 
   /**
@@ -118,12 +125,12 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
   public function testRenew() {
     $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 5, 100, 'DKK', array('splitpayment' => TRUE));
     $this->assertTrue($txn->success(), "Authorize works.");
-    $this->assertTrue($txn->state == QuickpayTransaction::AUTHORIZED, "Transaction state is 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is 'authorized'.");
 
     $txn->renew();
     // Not much we can check but that the request didn't fail.
     $this->assertTrue($txn->success(), "Renew works.");
-    $this->assertTrue($txn->state == QuickpayTransaction::AUTHORIZED, "Transaction state is 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is still 'authorized'.");
   }
 
   /**
@@ -132,12 +139,12 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
   public function testCancel() {
     $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 6, 100, 'DKK', array('splitpayment' => TRUE));
     $this->assertTrue($txn->success(), "Authorize works.");
-    $this->assertTrue($txn->state == QuickpayTransaction::AUTHORIZED, "Transaction state is 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is 'authorized'.");
 
     $txn->cancel();
     $this->assertTrue($txn->success(), "Cancel works.");
     // Check that the transaction state is now cancel.
-    $this->assertTrue($txn->state == QuickpayTransaction::CANCELLED, "Transaction state is 'cancelled'.");
+    $this->assertEqual($txn->last_state(), 'cancel', "Transaction state is 'cancelled'.");
   }
 
   /**
@@ -147,18 +154,19 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
     // Create a transaction.
     $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 7, 100, 'DKK');
     $this->assertTrue($txn->success(), "Authorize works.");
-    $this->assertTrue($txn->state == QuickpayTransaction::AUTHORIZED, "Transaction state is 'authorized'.");
+    $this->assertEqual($txn->last_state(), 'authorize', "Transaction state is 'authorized'.");
 
     // Capture part.
     $txn->capture(50);
     $this->assertTrue($txn->success(), "Can capture less than authorized amount.");
-    $this->assertTrue($txn->state == QuickpayTransaction::CAPTURED, "Transaction state is 'captured'.");
+    $this->assertEqual($txn->last_state(), 'capture', "Transaction state is 'captured'.");
+    $this->assertEqual($txn->balance(), 50, "Balance is correct.");
 
     // Refund some.
     $txn->refund(20);
     $this->assertTrue($txn->success(), "Can refund part of captured amount.");
-    $this->assertTrue($txn->state == QuickpayTransaction::REFUNDED, "Transaction state is 'refunded'.");
-
+    $this->assertEqual($txn->last_state(), 'refund', "Transaction state is 'refunded'.");
+    $this->assertEqual($txn->balance(), 70, "Balance is correct.");
   }
 
   /**
@@ -166,9 +174,9 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
    */
   public function testSubscribe() {
     // Create a transaction.
-    $sub_txn = $this->qp->subscribe($this->cards['dk'], '0319', '123', 8, 'test subscription');
+    $sub_txn = $this->qp->subscribe($this->cards['dk'], '0319', '123', 8, 'test subscription', 'DKK');
     $this->assertTrue($sub_txn->success(), "Subscribe works.");
-    $this->assertTrue($sub_txn->state == QuickpayTransaction::SUBSCRIBED, "Transaction state is 'subscribed'.");
+    $this->assertTrue($sub_txn->state, 'subscribe', "Transaction state is 'subscribed'.");
 
     // Use the subscribed transaction to authorize a payment.
     $txn = $sub_txn->recurring(9, 100, 'DKK');
