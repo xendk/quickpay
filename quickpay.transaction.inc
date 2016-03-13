@@ -341,17 +341,48 @@ class Quickpay {
   /**
    * Subscribe test function. See authorize().
    */
-  public function subscribe($cardnumber, $expiration, $cvd, $order_id, $description) {
-    $request_data = array(
-      'cardnumber' => $cardnumber,
-      'expirationdate' => $expiration,
-      'cvd' => $cvd,
-      'ordernumber' => $this->ordernumber($order_id),
+  public function subscribe($cardnumber, $expiration, $cvd, $order_id, $description, $amount, $currency) {
+    // Currently usupported, the API fails for some reason.
+    throw new QuickpayException("Not implemented.");
+    $currency_info = Quickpay::currency_info($currency);
+
+    // Create subscription.
+    $data = array(
+      'order_id' => $this->ordernumber($order_id),
+      'currency' => $currency_info['code'],
       'description' => $description,
     );
-    $transaction = new QuickpayTransaction($this);
-    // return $this->request('subscribe', $request_data, $transaction);
-    throw new QuickpayException("Not implemented.");
+    $subscription_res = $this->client()->request->post('/subscriptions', $data);
+
+    if (!$subscription_res->is_success()) {
+      Quickpay::log_error('Error creating subscription.', $subscription_res);
+      throw new QuickpayException('Error creating subscription.');
+    }
+
+    $subscription = $subscription_res->as_object();
+    // Authorise the subscription.
+    $data = array(
+      'amount' => Quickpay::wire_amount($amount, $currency_info),
+      'card[number]' => $cardnumber,
+      'card[expiration]' => $expiration,
+      'card[cvd]' => $cvd,
+      'test_mode' => $this->test_mode,
+      // Apparently Quickpay doesn't figure out the acquirer itself when using
+      // the API anymore. As this is only for testing, we hardcore it.
+      'acquirer' => 'clearhaus',
+    );
+
+    $authorize_res = $this->client()->request->post("/subscriptions/{$subscription->id}/authorize?synchronized", $data);
+
+    if (!$authorize_res->is_success()) {
+      drush_print_r($authorize_res->as_object());
+      Quickpay::log_error('Error authorizing subscription.', $authorize_res);
+      throw new QuickpayException('Error authorizing subscription.');
+    }
+
+    $transaction = new QuickpaySubscription($this);
+    $transaction->load_response($authorize_res->as_object());
+    return $transaction;
   }
 
   /**
@@ -616,46 +647,12 @@ class Quickpay {
 }
 
 /**
- * Abstracts a transaction.
+ * Base class for transactions and subscriptions.
  */
-class QuickpayTransaction {
-  // State codes.
-  const INITIAL = 0;
-  const AUTHORIZED = 1;
-  const CAPTURED = 3;
-  const CANCELLED = 5;
-  const REFUNDED = 7;
-  const SUBSCRIBED = 9;
-
+class QuickpayTransactionBase {
   protected $qp;
   protected $data;
   protected $loaded = FALSE;
-
-  protected static $fields = array(
-    'msgtype',
-    'ordernumber',
-    'amount',
-    'currency',
-    'time',
-    'state',
-    'qpstat',
-    'qpstatmsg',
-    'chstat',
-    'chstatmsg',
-    'merchant',
-    'merchantemail',
-    'transaction',
-    'cardtype',
-    'cardnumber',
-    'cardexpire',
-    'splitpayment',
-    'fraudprobability',
-    'fraudremarks',
-    'fraudreport',
-    'fee',
-    'md5check',
-    'history',
-  );
 
   /**
    * Create a transaction object.
@@ -679,7 +676,7 @@ class QuickpayTransaction {
       $this->status();
     }
 
-    if (in_array($field, array('currency', 'amount', 'history'))) {
+    if (in_array($field, array('currency', 'amount'))) {
       return $this->{$field}();
     }
 
@@ -687,6 +684,11 @@ class QuickpayTransaction {
     // but that's too late.
     if ($field == 'qpstatmsg') {
       $this->last_message();
+    }
+
+    // More legacy.
+    if ($field == 'transaction') {
+      $field = 'id';
     }
 
     if (array_key_exists($field, $this->data)) {
@@ -700,7 +702,7 @@ class QuickpayTransaction {
    * Magic method.
    */
   public function __isset($field) {
-    if ($field != 'transaction' && !$this->loaded) {
+    if ($field != 'id' && !$this->loaded) {
       $this->status();
     }
     if (isset($this->data[$field])) {
@@ -756,9 +758,67 @@ class QuickpayTransaction {
     if ($this->data['currency']) {
       return $this->data['currency'];
     }
-    throw new QuickpayException(t('No currency defined for transaction @txn_id', array('@txn_id' => $this->data['transaction'])));
+    throw new QuickpayException(t('No currency defined for transaction @txn_id', array('@txn_id' => $this->data['id'])));
   }
 
+  /**
+   * Returns the amount adjusted by the multiplier for the currency of this
+   * transaction.
+   */
+  public function wire_amount($amount = NULL) {
+    if (!$amount) {
+      return $this->data['amount'];
+    }
+    return Quickpay::wire_amount($amount, $this->currency());
+  }
+
+  /**
+   * Load a request response.
+   */
+  public function load_response($response) {
+    if (is_object($response)) {
+      $response = (array) $response;
+    }
+    if (!is_array($response)) {
+      throw new QuickpayException(t('Transaction could not be loaded from response: !response', array(
+            '!response', print_r($response, TRUE),
+          )));
+    }
+
+    $this->data = $response;
+    $this->loaded = TRUE;
+  }
+
+  /**
+   * Encode the minimal needed information about this transaction, for later
+   * loading. This is what modules using Quickpay should use as a reference.
+   */
+  public function store() {
+    if ($this->data['currency']) {
+      return serialize(array($this->data['id'], $this->data['currency']));
+    }
+    return $this->data['id'];
+  }
+
+
+  /**
+   * Whether this transaction was a success.
+   */
+  public function success() {
+    if ($operation = $this->get_last_operation()) {
+      if ($operation->qp_status_code == '20000') {
+        return TRUE;
+      }
+    }
+
+    return FALSE;
+  }
+}
+
+/**
+ * Abstracts a transaction.
+ */
+class QuickpayTransaction extends QuickpayTransactionBase {
   /**
    * Returns the amount for this transaction.
    */
@@ -769,20 +829,7 @@ class QuickpayTransaction {
     if ($this->data['amount']) {
       return Quickpay::unwire_amount($this->data['amount'], $this->currency());
     }
-    throw new QuickpayException(t('No amount for transaction @txn_id', array('@txn_id', $this->data['transaction'])));
-  }
-
-  /**
-   * Returns the history for this transaction.
-   */
-  public function history() {
-    if (!$this->loaded || !isset($this->history)) {
-      $this->status();
-    }
-    if ($this->data['history']) {
-      return $this->data['history'];
-    }
-    return array();
+    throw new QuickpayException(t('No amount for transaction @txn_id', array('@txn_id', $this->data['id'])));
   }
 
   /**
@@ -810,59 +857,6 @@ class QuickpayTransaction {
   }
 
   /**
-   * Extract named object properties into an associative array.
-   */
-  public function extract() {
-    // Safety, don't attempt to extract on empty transactions.
-    if (empty($this->data['transaction'])) {
-      throw new QuickpayException("No transaction id.");
-    }
-    // PHP 5.2 can't pass the result of func_get_args() directly to another
-    // function, so we use a variable.
-    $args = func_get_args();
-    return array_intersect_key($this->data, array_flip($args));
-  }
-
-  /**
-   * Returns the amount adjusted by the multiplier for the currency of this
-   * transaction.
-   */
-  public function wire_amount($amount = NULL) {
-    if (!$amount) {
-      return $this->data['amount'];
-    }
-    return Quickpay::wire_amount($amount, $this->currency());
-  }
-
-  /**
-   * Load a request response.
-   */
-  public function load_response($response) {
-    if (is_object($response)) {
-      $response = (array) $response;
-    }
-    if (!is_array($response)) {
-      throw new QuickpayException(t('Transaction could not be loaded from response: !response', array(
-        '!response', print_r($response, TRUE),
-      )));
-    }
-
-    $this->data = $response;
-    $this->loaded = TRUE;
-  }
-
-  /**
-   * Encode the minimal needed information about this transaction, for later
-   * loading. This is what modules using Quickpay should use as a reference.
-   */
-  public function store() {
-    if ($this->data['currency']) {
-      return serialize(array($this->data['id'], $this->data['currency']));
-    }
-    return $this->transaction;
-  }
-
-  /**
    * Capture on an authorised transaction.
    */
   public function capture($amount, $finalize = FALSE) {
@@ -885,9 +879,9 @@ class QuickpayTransaction {
    * Update this transaction with status information from Quickpay.
    */
   public function status() {
-    $payment_res = $this->qp->client()->request->get("/payments/{$this->data['id']}");
+    $subscription_res = $this->qp->client()->request->get("/payments/{$this->data['id']}");
 
-    if (!$payment_res->is_success()) {
+    if (!$subscription_res->is_success()) {
       Quickpay::log_error('Error fetching payment.', $payment_res);
       throw new QuickpayException('Error fetching payment.');
     }
@@ -939,38 +933,44 @@ class QuickpayTransaction {
 
     $this->load_response($refund_res->as_object());
   }
+}
+
+/**
+ * Represents a scubscription.
+ */
+class QuickpaySubscription extends QuickpayTransactionBase{
+  /**
+   * Update this subscription with status information from Quickpay.
+   */
+  public function status() {
+    $subscription_res = $this->qp->client()->request->get("/subscriptions/{$this->data['id']}");
+
+    if (!$subscription_res->is_success()) {
+      Quickpay::log_error('Error fetching subscription.', $subscription_res);
+      throw new QuickpayException('Error fetching subscription.');
+    }
+
+    $this->load_response($subscription_res->as_object());
+  }
 
   /**
    * Create a new payment on a subscription transaction.
    */
-  function recurring($order_id, $amount, $currency, $options = array()) {
-    $options += array(
-      'autocapture' => FALSE,
+  function recurring($order_id, $amount, $options = array()) {
+    $data = array(
+      'order_id' => $order_id,
+      'amount' => $this->wire_amount($amount),
+      'auto_capture' => isset($options['autocapture']) && $options['autocapture'],
     );
-    $currency_info = Quickpay::currency_info($currency);
-    $request_data = array(
-      'transaction' => $this->data['transaction'],
-      'ordernumber' => $this->qp->ordernumber($order_id),
-      'amount' => Quickpay::wire_amount($amount, $currency_info),
-      'currency' => $currency_info['code'],
-      'autocapture' => $options['autocapture'] ? '1' : '0',
-    );
-    $transaction = new QuickpayTransaction($this->qp);
-    // return $this->qp->request('recurring', $request_data, $transaction);
-    throw new QuickpayException("Not implemented.");
+    $recurring_res = $this->qp->client()->post("/subscriptions/{$this->data['id']}/recurring", $data);
 
-  }
-
-  /**
-   * Whether this transaction was a success.
-   */
-  public function success() {
-    if ($operation = $this->get_last_operation()) {
-      if ($operation->qp_status_code == '20000') {
-        return TRUE;
-      }
+    if (!$recurring_res->is_success()) {
+      Quickpay::log_error('Error authorizing payment.', $recurring_res);
+      throw new QuickpayException('Error authorizing payment.');
     }
 
-    return FALSE;
+    $transaction = new QuickpayTransaction($this);
+    $transaction->load_response($recurring_res->as_object());
+    return $transaction;
   }
 }
