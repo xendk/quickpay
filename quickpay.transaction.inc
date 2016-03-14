@@ -691,7 +691,7 @@ class QuickpayTransactionBase {
     // Legacy. Should have made an abstracted message property/method earlier,
     // but that's too late.
     if ($field == 'qpstatmsg') {
-      $this->last_message();
+      return $this->last_message();
     }
 
     // More legacy.
@@ -834,10 +834,28 @@ class QuickpayTransaction extends QuickpayTransactionBase {
     if (!$this->loaded) {
       $this->status();
     }
-    if ($this->data['amount']) {
+    if (isset($this->data['amount'])) {
       return Quickpay::unwire_amount($this->data['amount'], $this->currency());
     }
     throw new QuickpayException(t('No amount for transaction @txn_id', array('@txn_id', $this->data['id'])));
+  }
+
+  /**
+   * Returns the authorized amount for this transaction.
+   */
+  public function authorized_amount() {
+    if (!$this->loaded) {
+      $this->status();
+    }
+    if (isset($this->data['operations'])) {
+      foreach ($this->data['operations'] as $operation) {
+        if ($operation->type == 'authorize') {
+          return Quickpay::unwire_amount($operation->amount, $this->currency());
+        }
+      }
+    }
+
+    return NULL;
   }
 
   /**
@@ -850,6 +868,9 @@ class QuickpayTransaction extends QuickpayTransactionBase {
     // The v10 API keeps track of the balance, but as how much has been
     // captured. So we find the authorization amount and subtracts the balance
     // from that.
+    if (!$this->loaded) {
+      $this->status();
+    }
     if (isset($this->data['operations'])) {
       foreach ($this->data['operations'] as $operation) {
         if ($operation->type == 'authorize') {
@@ -857,7 +878,6 @@ class QuickpayTransaction extends QuickpayTransactionBase {
           break;
         }
       }
-
       if ($balance) {
         return Quickpay::unwire_amount($balance - $this->data['balance'], $this->currency());
       }
@@ -887,9 +907,9 @@ class QuickpayTransaction extends QuickpayTransactionBase {
    * Update this transaction with status information from Quickpay.
    */
   public function status() {
-    $subscription_res = $this->qp->client()->request->get("/payments/{$this->data['id']}");
+    $payment_res = $this->qp->client()->request->get("/payments/{$this->data['id']}");
 
-    if (!$subscription_res->is_success()) {
+    if (!$payment_res->is_success()) {
       Quickpay::log_error('Error fetching payment.', $payment_res);
       throw new QuickpayException('Error fetching payment.');
     }
@@ -946,7 +966,7 @@ class QuickpayTransaction extends QuickpayTransactionBase {
 /**
  * Represents a scubscription.
  */
-class QuickpaySubscription extends QuickpayTransactionBase{
+class QuickpaySubscription extends QuickpayTransactionBase {
   /**
    * Update this subscription with status information from Quickpay.
    */

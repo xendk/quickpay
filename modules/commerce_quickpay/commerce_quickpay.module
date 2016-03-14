@@ -89,11 +89,11 @@ function commerce_quickpay_transaction_capture_form($form, &$form_state, $order,
   $balance = commerce_payment_order_balance($order);
 
   if ($balance['amount'] > 0 && $balance['amount'] < $txn_amount) {
-     $default_amount = $balance['amount'];
-   }
-   else {
-     $default_amount = $txn_amount;
-   }
+    $default_amount = $balance['amount'];
+  }
+  else {
+    $default_amount = $txn_amount;
+  }
 
   // Convert the price amount to a user friendly decimal value.
   $default_amount = commerce_currency_amount_to_decimal($default_amount, $transaction->currency_code);
@@ -110,27 +110,8 @@ function commerce_quickpay_transaction_capture_form($form, &$form_state, $order,
     '#default_value' => $default_amount,
     '#field_suffix' => check_plain($transaction->currency_code),
     '#size' => 16,
-   );
+  );
 
-  if ($txn->splitpayment) {
-    $form['finalize'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Finalize'),
-      '#description' => t('When the transaction is finalized, no further capture is possible.'),
-      '#default_value' => '0',
-   );
-  }
-  else {
-    $form['finalize'] = array(
-      '#type' => 'value',
-      '#value' => '1',
-    );
-
-    $form['warning'] = array(
-      '#type' => 'markup',
-      '#markup' => t('<em>Warning:</em> No further capture will be possible.'),
-    );
-  }
   $form = confirm_form($form,
           t('What amount do you want to capture?'),
           'admin/commerce/orders/' . $order->order_id . '/payment',
@@ -170,21 +151,17 @@ function commerce_quickpay_transaction_capture_form_validate($form, &$form_state
 function commerce_quickpay_transaction_capture_form_submit($form, &$form_state) {
   $transaction = $form_state['transaction'];
   $amount = $form_state['values']['amount'];
-  $finalize = $form_state['values']['finalize'] == 1;
 
   $qp = new Quickpay($form_state['payment_method']['settings']);
   $txn = $qp->transaction($transaction->remote_id);
 
-  if ($amount == $txn->balance()) {
-    $finalize = TRUE;
-  }
-  $txn->capture($amount, $finalize);
+  $txn->capture($amount);
   $transaction->payload[REQUEST_TIME] = $txn;
 
   if ($txn->success()) {
     drupal_set_message(t("Payment captured."));
-    // Complete the transaction if finalized, or we captured the
-    if ($finalize) {
+    // Complete the transaction if we captured the full amount.
+    if ($txn->balance() == 0) {
       $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
       // Update status so balance is updated.
       $txn->status();
@@ -326,7 +303,7 @@ function commerce_quickpay_quickpay_callback($order_number, $txn) {
   $transaction->instance_id = $payment_method['instance_id'];
   $transaction->remote_id = $txn->store();
   $transaction->message = $txn->qpstatmsg;
-  $transaction->amount = commerce_currency_decimal_to_amount($txn->amount, $txn->currency);
+  $transaction->amount = commerce_currency_decimal_to_amount($txn->authorized_amount(), $txn->currency);
   $transaction->currency_code = $txn->currency;
   $transaction->payload[REQUEST_TIME] = $txn;
 
