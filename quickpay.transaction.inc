@@ -20,7 +20,6 @@ class Quickpay {
   protected $agreement_api_key;
   protected $order_prefix = '';
   protected $accepted_cards = array('creditcard');
-  protected $popup = FALSE;
   // With a 'use user language' default option.
   protected $language = LANGUAGE_NONE;
 
@@ -65,9 +64,6 @@ class Quickpay {
     if (isset($options['language'])) {
       $this->language = $options['language'];
     }
-    /* if (isset($options['popup'])) { */
-    /*   $this->popup = (bool) $options['popup']; */
-    /* } */
   }
 
   /**
@@ -472,7 +468,6 @@ class Quickpay {
       'accepted_cards' => array('creditcard'),
       'test_mode' => FALSE,
       'debug' => FALSE,
-      'popup' => FALSE,
       'splitpayment' => TRUE,
     );
 
