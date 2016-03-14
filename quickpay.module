@@ -133,15 +133,22 @@ function quickpay_cards() {
       'name' => t('Mastercard, issued in Denmark'),
       'image' => $images_path . 'mastercard.jpg',
     ),
-    'mastercard-debet-dk' => array(
-      'name' => t('Mastercard debet card, issued in Denmark'),
-      'image' => $images_path . 'mastercard.jpg',
-    ),
     '3d-mastercard' => array(
       'name' => t('Mastercard, using 3D-Secure'),
     ),
     '3d-mastercard-dk' => array(
       'name' => t('Mastercard, issued in Denmark, using 3D-Secure'),
+    ),
+    'mastercard-debet' => array(
+      'name' => t('Mastercard debet card'),
+      'image' => $images_path . 'mastercard.jpg',
+    ),
+    'mastercard-debet-dk' => array(
+      'name' => t('Mastercard debet card, issued in Denmark'),
+      'image' => $images_path . 'mastercard.jpg',
+    ),
+    '3d-mastercard-debet' => array(
+      'name' => t('Mastercard debet, using 3D-Secure'),
     ),
     '3d-mastercard-debet-dk' => array(
       'name' => t('Mastercard debet, issued in Denmark, using 3D-Secure'),
@@ -162,6 +169,14 @@ function quickpay_cards() {
       'name' => t('JCB, using 3D-Secure'),
       'image' => $images_path . '3d-jcb.gif',
     ),
+    'jcb-dk' => array(
+      'name' => t('JCB, issued in Denmark'),
+      'image' => $images_path . 'jcb.jpg',
+    ),
+    '3d-jcb-dk' => array(
+      'name' => t('JCB, issued in Denmark, using 3D-Secure'),
+      'image' => $images_path . '3d-jcb.gif',
+    ),
     'diners' => array(
       'name' => t('Diners'),
       'image' => $images_path . 'diners.jpg',
@@ -178,21 +193,9 @@ function quickpay_cards() {
       'name' => t('American Express, issued in Denmark'),
       'image' => $images_path . 'amexpress.jpg',
     ),
-    'danske-dk' => array(
-      'name' => t('Danske Netbetaling'),
-      'image' => $images_path . 'danskebank.jpg',
-    ),
-    'nordea-dk' => array(
-      'name' => t('Nordea Netbetaling'),
-      'image' => $images_path . 'nordea.jpg',
-    ),
     'fbg1886' => array(
       'name' => t('Forbrugsforeningen'),
       'image' => $images_path . 'forbrugsforeningen.gif',
-    ),
-    'ikano' => array(
-      'name' => t('Ikano'),
-      'image' => $images_path . 'ikano.jpg',
     ),
     'paypal' => array(
       'name' => t('PayPal'),
@@ -205,6 +208,14 @@ function quickpay_cards() {
     'viabill' => array(
       'name' => t('ViaBill'),
       'image' => $images_path . 'viabill.png',
+    ),
+    'klarna' => array(
+      'name' => t('Klarna'),
+      'image' => $images_path . 'klarna.png',
+    ),
+    'mobilepay' => array(
+      'name' => t('MobilePay'),
+      'image' => $images_path . 'mobilepay.png',
     ),
   );
 }
