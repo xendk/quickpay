@@ -134,9 +134,9 @@ class Quickpay {
    *     to when the payment is complete.
    *   - 'cancel_url': The absolute URL that Quickpay should redirect the user
    *     to when the payment is cancelled.
-   *   - 'msgtype': The type of authorization, either 'authorize', for regular
-   *     payments, or 'subscribe' for subscription signups. Optional, defaults
-   *     to 'authorize'.
+   *   - 'type': The type of authorization, either 'payment', for regular
+   *     payments, or 'subscription' for subscription signups. Optional,
+   *     defaults to 'payment'.
    *   - 'description': Description of subscription, required for msgtype
    *     'subscribe' .
    *   - 'autocapture': Capture the payment immediately. Must only be used if
@@ -153,7 +153,7 @@ class Quickpay {
   public function form($order_id, $amount, $currency, $module, $options) {
     $options += array(
       'autocapture' => FALSE,
-      'msgtype' => 'authorize',
+      'type' => 'payment',
       'description' => NULL,
       'continue_url' => NULL,
       'cancel_url' => NULL,
@@ -167,12 +167,12 @@ class Quickpay {
       throw new QuickpayException(t("Missing required cancel_url."));
     }
 
-    if (!in_array($options['msgtype'], array('authorize', 'subscribe'))) {
+    if (!in_array($options['type'], array('payment', 'subscription'))) {
       // FIXME: better error handling.
-      throw new QuickpayException(t("Bad message type @type, must be 'authorize' or 'subscribe'.", array('@type' => $options['msgtype'])));
+      throw new QuickpayException(t("Bad message type @type, must be 'payment' or 'subscription'.", array('@type' => $options['type'])));
     }
 
-    if ($options['msgtype'] == 'subscribe') {
+    if ($options['type'] == 'subscription') {
       if (empty($options['description'])) {
         throw new QuickpayException(t("Missing required subscription description."));
       }
@@ -207,16 +207,24 @@ class Quickpay {
     $data['currency'] = $currency_info['code'];
     $data['continueurl'] = $options['continue_url'];
     $data['cancelurl'] = $options['cancel_url'];
-    $data['callbackurl'] = url(_quickpay_md5_path('quickpay/' . $order_id . '/' . $module), array('absolute' => TRUE));
     // End of required variables.
+    $data['callbackurl'] = url(_quickpay_md5_path('quickpay/' . $order_id . '/' . $module), array('absolute' => TRUE));
 
-    // Use the user's current language
+    if ($options['type'] !== 'payment') {
+      $data['type'] = $options['type'];
+    }
+
+    // Use the user's current language.
     if ($this->language == LANGUAGE_NONE) {
       global $language;
       $data['language'] = self::get_country_code($language->language);
     }
     else {
       $data['language'] = $this->language;
+    }
+
+    if ($this->accepted_cards) {
+      $data['payment_methods'] = implode(',', $this->accepted_cards);
     }
 
     $data['autocapture'] = ($options['autocapture']) ? '1' : '0';
@@ -270,9 +278,28 @@ class Quickpay {
    */
   protected function get_checksum(array $data) {
     $api_key = $this->agreement_api_key;
-    ksort($data);
-    $base = implode(" ", $data);
+    $flattened_params = $this->flatten_params($data);
+    ksort($flattened_params);
+    $base = implode(" ", $flattened_params);
     return hash_hmac("sha256", $base, $api_key);
+  }
+
+  /**
+   * Flatten request parameter array.
+   */
+  protected function flatten_params($obj, $result = array(), $path = array()) {
+    if (is_array($obj)) {
+      foreach ($obj as $k => $v) {
+        $result = array_merge($result, $this->flatten_params($v, $result, array_merge($path, array($k))));
+      }
+    }
+    else {
+      $result[implode("", array_map(function($p) {
+        return "[{$p}]";
+      }, $path))] = $obj;
+    }
+
+    return $result;
   }
 
   /**
@@ -392,20 +419,6 @@ class Quickpay {
                      -4 + strlen($this->order_prefix));
     }
     return $ordernumber;
-  }
-
-  /**
-   * Return the proper cardtypelock for the accepted cards.
-   */
-  protected function get_cardtypelock() {
-    if (is_array($this->accepted_cards)) {
-      $cards = $this->accepted_cards;
-      // Aren't supported in cardtypelock.
-      unset($cards['ikano']);
-      return join(',', $cards);
-    }
-    // Already set to the proper string.
-    return $this->accepted_cards;
   }
 
   /**
