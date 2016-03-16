@@ -5,6 +5,8 @@
  * Implements QuickPay payment method for Drupal Commerce.
  */
 
+define('COMMERCE_PAYMENT_STATUS_QUICKPAY_CANCELED', 'quickpay_canceled');
+
 /**
  * Implements hook_commerce_payment_method_info().
  */
@@ -222,7 +224,7 @@ function commerce_quickpay_transaction_cancel_form_submit($form, &$form_state) {
 
   if ($txn->success()) {
     drupal_set_message(t("Payment cancelled."));
-    $transaction->status = COMMERCE_PAYMENT_STATUS_FAILURE;
+    $transaction->status = COMMERCE_PAYMENT_STATUS_QUICKPAY_CANCELED;
   }
   else {
     drupal_set_message(t('Payment cancellation failed, message: "@message".', array('@message' => $txn->qpstatmsg)), 'error');
