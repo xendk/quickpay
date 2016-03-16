@@ -142,8 +142,6 @@ class Quickpay {
    *   - 'autocapture': Capture the payment immediately. Must only be used if
    *     the order is fulfilled immediately, for example if paying for access
    *     to some content that can then be viewed strait away.
-   *   - 'splitpayment': Allow the transaction to be captured in multiple
-   *     smaller parts. If not set, the can only be captured once.
    *   - 'autofee': Calculate and add the fee for the acquirer to the amount.
    *     This will increase the amount charged.
    *
@@ -481,10 +479,8 @@ class Quickpay {
       'accepted_cards' => array('creditcard'),
       'test_mode' => FALSE,
       'debug' => FALSE,
-      'splitpayment' => TRUE,
     );
 
-    // Found in the "Integration" tab inside the QuickPay manager
     $form['merchant'] = array(
       '#type' => 'textfield',
       '#title' => t('Merchant ID'),
@@ -538,14 +534,6 @@ class Quickpay {
     $form['accepted_cards'] = array(
       '#type' => 'quickpay_payment_method',
       '#default_value' => $settings['accepted_cards'],
-    );
-
-    // todo: remove this and all usage.
-    $form['splitpayment'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Split payments'),
-      '#description' => t('Allows for capturing payments in parts.'),
-      '#default_value' => $settings['splitpayment'],
     );
 
     $form['test_mode'] = array(
