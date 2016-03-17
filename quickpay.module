@@ -69,9 +69,7 @@ function quickpay_hash_check($id, $module) {
   $path = arg();
   $hash = array_pop($path);
 
-  return ;
-}
-if (_quickpay_hash_path(implode('/', $path)) == $hash) {
+  if (_quickpay_hash_path(implode('/', $path)) == $hash) {
     return TRUE;
   }
   else {
