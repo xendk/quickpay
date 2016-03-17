@@ -22,7 +22,7 @@ function quickpay_menu() {
     'title' => 'QuickPay callback page',
     'page callback' => 'quickpay_callback',
     'page arguments' => array(1, 2),
-    'access callback' => 'quickpay_md5_check',
+    'access callback' => 'quickpay_hash_check',
     'access arguments' => array(1, 2),
     'type' => MENU_CALLBACK,
   );
@@ -65,18 +65,20 @@ function quickpay_theme() {
  *
  * Checks that the url parameters hasn't been tampered with.
  *
- * @see _quickpay_md5_path()
+ * @see _quickpay_hash_path()
  */
-function quickpay_md5_check($id, $module) {
+function quickpay_hash_check($id, $module) {
   $path = arg();
-  $md5 = array_pop($path);
+  $hash = array_pop($path);
 
-  if (md5(implode('/', $path) . variable_get('drupal_private_key', rand())) == $md5) {
+  return ;
+}
+if (_quickpay_hash_path(implode('/', $path)) == $hash) {
     return TRUE;
   }
   else {
-    $path[] = $md5;
-    watchdog('quickpay', 'Arguments failed md5 sum check. Either someone is trying to abuse the site, or there is a bug somewhere. Path: @path', array('@path' => implode('/', $path)), WATCHDOG_WARNING);
+    $path[] = $hash;
+    watchdog('quickpay', 'Arguments failed hash check. Either someone is trying to abuse the site, or there is a bug somewhere. Path: @path', array('@path' => implode('/', $path)), WATCHDOG_WARNING);
   }
   return FALSE;
 }
@@ -346,22 +348,21 @@ function quickpay_callback($id, $module) {
 /* --- Internal functions --- */
 
 /**
- * Return an md5 checksummed path, appending to the original path.
+ * Return an hash checksummed path, appending to the original path.
  *
  * This allows us to create paths that's resistant to tampering. By appending
- * an md5 sum of the path and drupal_private_key, and checking the sum in
+ * an hash of the path and drupal_private_key, and checking the sum in
  * requests, it's not possible to change a path element. This means that we
  * can put data in the URL, and be sure it's not changed.
  *
- * @see quickpay_md5_check()
+ * @see quickpay_hash_check()
  *
- * @param $path
- *  A Drupal path.
+ * @param string $path
+ *   A Drupal path.
  *
- * @return
- *  The path with the checksum appended as an additional path component.
+ * @return string
+ *   The path with the checksum appended as an additional path component.
  */
-function _quickpay_md5_path($path) {
-  // The rand is to ensure failure if drupal_private_key haven't been set.
-  return $path . '/' . md5($path . variable_get('drupal_private_key', rand()));
+function _quickpay_hash_path($path) {
+  return $path . '/' . drupal_hmac_base64($path, drupal_get_private_key() . drupal_get_hash_salt());
 }

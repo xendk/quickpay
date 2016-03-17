@@ -209,7 +209,7 @@ class Quickpay {
     $data['continueurl'] = $options['continue_url'];
     $data['cancelurl'] = $options['cancel_url'];
     // End of required variables.
-    $data['callbackurl'] = url(_quickpay_md5_path('quickpay/' . $order_id . '/' . $module), array('absolute' => TRUE));
+    $data['callbackurl'] = url(_quickpay_hash_path('quickpay/' . $order_id . '/' . $module), array('absolute' => TRUE));
 
     if ($options['type'] !== 'payment') {
       $data['type'] = $options['type'];
