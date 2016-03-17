@@ -99,10 +99,10 @@ class Quickpay {
     $checksum_requested = $_SERVER['HTTP_QUICKPAY_CHECKSUM_SHA256'];
 
     if ($checksum_calculated !== $checksum_requested) {
-      watchdog('quickpay', 'Transaction callback checksum didn\'t verify. Checksum calculated: @md5 Data: @data',
+      watchdog('quickpay', 'Transaction callback checksum didn\'t verify. Checksum calculated: @hash Data: @data',
         array(
           '@data' => print_r($request, TRUE),
-          '@md5' => $checksum_calculated,
+          '@hash' => $checksum_calculated,
         ), WATCHDOG_ERROR);
       return NULL;
     }
@@ -113,7 +113,7 @@ class Quickpay {
   }
 
   /**
-   * Calculates the md5checksum for the callback request.
+   * Calculates the hash for the callback request.
    *
    * @param string $callback_data
    *   The data received by the callback page.
@@ -262,7 +262,7 @@ class Quickpay {
   }
 
   /**
-   * Calculate the md5checksum for the request.
+   * Calculate the hash for the request.
    *
    * @param array $data
    *   The data to POST to Quickpay.
