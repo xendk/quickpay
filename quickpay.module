@@ -9,10 +9,8 @@
  * @todo user whether we're using bcmul/bcdiv.
  */
 
-// The protocol version we implement for the API calls.
-define('QUICKPAY_VERSION_API', 'v10');
-// The protocol version we implement for the payment window.
-define('QUICKPAY_VERSION_POST', 'v10');
+// The protocol version we implement.
+define('QUICKPAY_VERSION', 'v10');
 
 /**
  * Implements hook_menu().

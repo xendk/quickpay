@@ -198,7 +198,7 @@ class Quickpay {
 
     $data = array();
     // Required variables.
-    $data['version'] = QUICKPAY_VERSION_POST;
+    $data['version'] = QUICKPAY_VERSION;
     $data['merchant_id'] = $this->merchant;
     $data['agreement_id'] = $this->agreementId;
     $data['order_id'] = $this->orderNumber($order_id);
