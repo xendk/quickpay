@@ -131,16 +131,16 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
   /**
    * Test renew.
    */
-  public function testRenew() {
-    $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 5, 100, 'DKK');
-    $this->assertTrue($txn->success(), "Authorize works.");
-    $this->assertEqual($txn->lastState(), 'authorize', "Transaction state is 'authorized'.");
+  // public function testRenew() {
+  //   $txn = $this->qp->authorize($this->cards['dk'], '0319', '123', 5, 100, 'DKK');
+  //   $this->assertTrue($txn->success(), "Authorize works.");
+  //   $this->assertEqual($txn->lastState(), 'authorize', "Transaction state is 'authorized'.");
 
-    $txn->renew();
-    // Not much we can check but that the request didn't fail.
-    $this->assertTrue($txn->success(), "Renew works.");
-    $this->assertEqual($txn->lastState(), 'authorize', "Transaction state is still 'authorized'.");
-  }
+  //   $txn->renew();
+  //   // Not much we can check but that the request didn't fail.
+  //   $this->assertTrue($txn->success(), "Renew works.");
+  //   $this->assertEqual($txn->lastState(), 'authorize', "Transaction state is still 'authorized'.");
+  // }
 
   /**
    * Test cancel.

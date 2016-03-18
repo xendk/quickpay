@@ -925,6 +925,9 @@ class QuickpayTransaction extends QuickpayTransactionBase {
    * Renew an authorisation.
    */
   public function renew() {
+    // Currently usupported, the API fails for some reason.
+    throw new QuickpayException("Not implemented.");
+
     $renew_res = $this->qp->client()->request->post("/payments/{$this->data['id']}/renew?synchronized");
 
     if (!$renew_res->is_success()) {
