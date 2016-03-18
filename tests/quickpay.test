@@ -223,4 +223,15 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
       $this->pass("Using non-existent transaction throws an exception.");
     }
   }
+
+  public function testHashPath() {
+    $path = 'a/quick/test/with/a/few/path/components';
+    $hash_path = _quickpay_hash_path($path);
+
+    $this->assertTrue(_quickpay_hash_check(explode('/', $hash_path)), "Path hash accepts correct hash path.");
+
+    // Change a char.
+    $hash_path = preg_replace('{/a/}', '/b/', $hash_path);
+    $this->assertFalse(_quickpay_hash_check(explode('/', $hash_path)), "Path hash rejects tampered hash path.");
+  }
 }
