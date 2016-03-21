@@ -65,10 +65,12 @@ class Quickpay {
     }
     // @todo validate this to some extend.
     if (isset($options['accepted_cards'])) {
-      if (!is_array($options['accepted_cards'])) {
+      if (is_array($options['accepted_cards'])) {
+        $this->acceptedCards = $options['accepted_cards'];
+      }
+      else {
         $this->acceptedCards = array($options['accepted_cards']);
       }
-      $this->acceptedCards = $options['accepted_cards'];
     }
     if (isset($options['language'])) {
       $this->language = $options['language'];
