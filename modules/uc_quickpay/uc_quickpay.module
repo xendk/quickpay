@@ -103,6 +103,7 @@ function uc_quickpay_form_uc_payment_by_order_form_alter(&$form, &$form_state) {
     '#validate' => array(),
     '#submit' => array('uc_quickpay_action_submit'),
   );
+
   $form['uc_quickpay']['capture_amount'] = array(
     '#type' => 'textfield',
     '#default_value' => uc_payment_balance($order),
@@ -156,11 +157,11 @@ function uc_quickpay_action_submit($form, &$form_state) {
   // These 3 functions are almost copy'paste. They should be build into 1.
   switch ($form_state['values']['op']) {
     case 'Capture':
-      _uc_quickpay_capture($order->order_id, $order->data['quickpay_txn_id'], ($form_state['input']['capture_amount']));
+      _uc_quickpay_capture($order->order_id, $order->data['quickpay_txn_id'], $form_state['values']['capture_amount']);
       break;
 
     case 'Refund':
-      _uc_quickpay_refund($order->order_id, $order->data['quickpay_txn_id'], ($form_state['input']['refund_amount']));
+      _uc_quickpay_refund($order->order_id, $order->data['quickpay_txn_id'], $form_state['values']['refund_amount']);
       break;
 
     case 'Cancel':
@@ -171,6 +172,8 @@ function uc_quickpay_action_submit($form, &$form_state) {
 }
 
 /**
+ * Capture payment.
+ *
  * This is a wrapper for capturing a payment simply by order id and
  * transaction id.
  */
@@ -199,7 +202,7 @@ function _uc_quickpay_capture($order_id, $txn_id, $amount) {
 }
 
 /**
- * Wrapper for refunding
+ * Refund payment.
  */
 function _uc_quickpay_refund($order_id, $txn_id, $amount) {
   global $user;
@@ -226,7 +229,7 @@ function _uc_quickpay_refund($order_id, $txn_id, $amount) {
 }
 
 /**
- * Wrapper for refunding
+ * Cancel payment.
  */
 function _uc_quickpay_cancel($order_id, $txn_id) {
   global $user;
@@ -259,7 +262,6 @@ function uc_payment_method_quickpay($op) {
   switch ($op) {
     case 'cart-details':
       return;
-      break;
 
     case 'settings':
       $settings = variable_get('uc_quickpay_settings', array());
@@ -297,8 +299,6 @@ function uc_payment_method_quickpay($op) {
 
       $form = system_settings_form($form);
       return $form;
-      break;
-
   }
 }
 
@@ -340,12 +340,12 @@ function uc_quickpay_quickpay_callback($order_id, $txn) {
     return;
   }
 
-
   $payment_data = array(
     'type' => 'quickpay_txn_ready',
     'txn_id' => $txn->store(),
     'txn' => $txn,
   );
+
   $order = uc_order_load($order_id);
   $order->data['quickpay_settings'] = variable_get('uc_quickpay_settings');
   $order->data['quickpay_txn_id'] = $payment_data['txn_id'];

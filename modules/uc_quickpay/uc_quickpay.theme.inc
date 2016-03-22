@@ -30,6 +30,8 @@ function theme_uc_quickpay_by_order_form($variables) {
 }
 
 /**
+ * Theme authorized comment.
+ *
  * The theme function for the authorized messaged written in the ubercart order
  * payment tab.
  */
@@ -39,6 +41,8 @@ function theme_uc_quickpay_authorized_comment($variables) {
 }
 
 /**
+ * Theme captured comment.
+ *
  * The theme function for the capture messaged written in the ubercart order
  * payment tab.
  */
@@ -48,6 +52,8 @@ function theme_uc_quickpay_captured_comment($variables) {
 }
 
 /**
+ * Theme cancel comment.
+ *
  * The theme function for the cancel messaged written in the ubercart order
  * payment tab.
  */
@@ -57,6 +63,8 @@ function theme_uc_quickpay_canceled_comment($variables) {
 }
 
 /**
+ * Theme refunded comment.
+ *
  * The theme function for the refund messaged written in the ubercart order
  * payment tab.
  */
