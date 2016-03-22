@@ -105,7 +105,7 @@ function uc_quickpay_form_uc_payment_by_order_form_alter(&$form, &$form_state) {
   );
   $form['uc_quickpay']['capture_amount'] = array(
     '#type' => 'textfield',
-    '#value' => t(uc_payment_balance($order)),
+    '#default_value' => uc_payment_balance($order),
     '#size' => 20,
   );
 
@@ -118,7 +118,7 @@ function uc_quickpay_form_uc_payment_by_order_form_alter(&$form, &$form_state) {
   );
   $form['uc_quickpay']['refund_amount'] = array(
     '#type' => 'textfield',
-    '#value' => t(uc_payment_balance($order)),
+    '#default_value' => uc_payment_balance($order),
     '#size' => 20,
   );
 
