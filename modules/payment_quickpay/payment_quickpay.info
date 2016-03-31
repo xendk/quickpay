@@ -1,9 +1,0 @@
-name = Payment Quickpay
-description = Provides Quickpay integration for the Payment platform
-core = 7.x
-package = Payment
-
-dependencies[] = payment
-dependencies[] = quickpay
-
-files[] = payment_quickpay.classes.inc
