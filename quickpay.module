@@ -63,11 +63,11 @@ function quickpay_theme() {
  *
  * Checks that the url parameters hasn't been tampered with.
  *
- * @see _quickpay_hash_check()
- * @see _quickpay_hash_path()
+ * @see quickpay_hash_check()
+ * @see quickpay_hash_path()
  */
 function quickpay_hash_check_access($id, $module) {
-  return _quickpay_hash_check(arg());
+  return quickpay_hash_check(arg());
 }
 
 /**
@@ -350,20 +350,24 @@ function quickpay_callback($id, $module) {
  *
  * @see quickpay_hash_check()
  */
-function _quickpay_hash_path($path) {
+function quickpay_hash_path($path) {
   return $path . '/' . _quickpay_hash($path);
 }
 
 /**
  * Checks that the path haven't been tampered with.
  *
- * @param array $path
- *   The path split on slashes, as provided by arg().
+ * @param string|array $path
+ *   The path as a string or split on slashes, as provided by arg().
  *
  * @return bool
  *   Whether the hash validates.
  */
-function _quickpay_hash_check(array $path, $dont_log = FALSE) {
+function quickpay_hash_check($path, $dont_log = FALSE) {
+  if (!is_array($path)) {
+    $path = explode('/', $path);
+  }
+
   $hash = array_pop($path);
 
   if (_quickpay_hash(implode('/', $path)) == $hash) {
