@@ -94,7 +94,12 @@ class Quickpay {
    *   Either a QuickpayTransaction object, or NULL if there was a problem.
    */
   public function transactionCallback() {
-    // Copied from other module.
+    if (!isset($_SERVER['HTTP_QUICKPAY_CHECKSUM_SHA256'])) {
+      watchdog('quickpay', 'No checksum in callback. Ignoring.',
+               array(), WATCHDOG_ERROR);
+      return NULL;
+    }
+
     // Can't use $_POST with JSON request.
     $request_body = file_get_contents("php://input");
     $request = json_decode($request_body);
