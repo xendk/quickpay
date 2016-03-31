@@ -342,13 +342,13 @@ function quickpay_callback($id, $module) {
  * requests, it's not possible to change a path element. This means that we
  * can put data in the URL, and be sure it's not changed.
  *
- * @see quickpay_hash_check()
- *
  * @param string $path
  *   A Drupal path.
  *
  * @return string
  *   The path with the checksum appended as an additional path component.
+ *
+ * @see quickpay_hash_check()
  */
 function _quickpay_hash_path($path) {
   return $path . '/' . _quickpay_hash($path);
@@ -363,7 +363,7 @@ function _quickpay_hash_path($path) {
  * @return bool
  *   Whether the hash validates.
  */
-function _quickpay_hash_check($path, $dont_log = FALSE) {
+function _quickpay_hash_check(array $path, $dont_log = FALSE) {
   $hash = array_pop($path);
 
   if (_quickpay_hash(implode('/', $path)) == $hash) {
