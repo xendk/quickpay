@@ -37,7 +37,7 @@ function theme_uc_quickpay_by_order_form($variables) {
  */
 function theme_uc_quickpay_authorized_comment($variables) {
   $txn = $variables['txn'];
-  return $txn->amount() . ' ' . $txn->currency() . ' Authorized.<br/>Transaction ID: ' . $txn->transaction;
+  return $txn->authorizedAmount() . ' ' . $txn->currency() . ' Authorized.<br/>Transaction ID: ' . $txn->transaction;
 }
 
 /**
