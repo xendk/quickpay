@@ -36,7 +36,7 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
    */
   public function setUp() {
     require_once dirname(__FILE__) . '/../quickpay.transaction.inc';
-    // Account set up for testing
+    // Account set up for testing.
     $settings = array(
       'merchant' => '13356',
       'private_key' => '45da874f95db23e9f9b39e97eeb64d853e80087a1835244bcd9751d2e5d88dfa',
@@ -224,6 +224,9 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
     }
   }
 
+  /**
+   * Test the path hashing function.
+   */
   public function testHashPath() {
     module_load_include('module', 'quickpay');
     $path = 'a/quick/test/with/a/few/path/components';
@@ -235,4 +238,5 @@ class QuickPayUnitTest extends DrupalUnitTestCase {
     $hash_path = preg_replace('{/a/}', '/b/', $hash_path);
     $this->assertFalse(quickpay_hash_check($hash_path, TRUE), "Path hash rejects tampered hash path.");
   }
+
 }
