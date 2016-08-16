@@ -48,7 +48,7 @@ function theme_uc_quickpay_authorized_comment($variables) {
  */
 function theme_uc_quickpay_captured_comment($variables) {
   $txn = $variables['txn'];
-  return $txn->amount() . ' ' . $txn->currency() . ' Captured.<br/>Transaction ID: ' . $txn->transaction;
+  return 'Captured, balance: ' . $txn->balance() . ' ' . $txn->currency() . '.<br/>Transaction ID: ' . $txn->transaction;
 }
 
 /**
@@ -70,5 +70,5 @@ function theme_uc_quickpay_canceled_comment($variables) {
  */
 function theme_uc_quickpay_refunded_comment($variables) {
   $txn = $variables['txn'];
-  return $txn->amount() . ' ' . $txn->currency() . ' Refunded.<br/>Transaction ID: ' . $txn->transaction;
+  return 'Refunded, balance: ' . $txn->balance() . ' ' . $txn->currency() . ' <br/>Transaction ID: ' . $txn->transaction;
 }
