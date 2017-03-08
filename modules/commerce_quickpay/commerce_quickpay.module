@@ -59,7 +59,8 @@ function commerce_quickpay_menu() {
  * Menu access callback.
  */
 function commerce_quickpay_transaction_access($op, $transaction) {
-  if ($transaction->payment_method != 'quickpay') {
+  if ($transaction->payment_method != 'quickpay' ||
+    !commerce_payment_transaction_access($op, $transaction)) {
     return FALSE;
   }
 
