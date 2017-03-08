@@ -688,6 +688,11 @@ class QuickpayTransactionBase {
    * Magic method.
    */
   public function __get($field) {
+    // Krumo sets odd properties on object, let it.
+    if (preg_match('/krumo/', $field)) {
+      return $this->{$field};
+    }
+
     if (!$this->loaded) {
       $this->status();
     }
