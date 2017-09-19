@@ -1,0 +1,31 @@
+---
+engines:
+  fixme:
+    enabled: true
+    config:
+      strings:
+        # Standard configuration.
+        - TODO
+        - FIXME
+        - HACK
+        - XXX
+        - BUG
+        # Doxygen variants.
+        - '@todo'
+        - '@fixme'
+  phpcodesniffer:
+    enabled: true
+    config:
+      standard: Drupal,DrupalPractice
+ratings:
+  paths:
+  - "**.css"
+  - "**.inc"
+  - "**.js"
+  - "**.install"
+  - "**.module"
+  - "**.theme"
+  - "**.php"
+exclude_paths:
+  - lib/
+  
